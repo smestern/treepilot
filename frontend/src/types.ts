@@ -1,0 +1,37 @@
+/**
+ * Type definitions for TreePilot
+ */
+
+export interface Individual {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  gender: 'M' | 'F' | 'U';
+  birthYear: number | null;
+  deathYear: number | null;
+  birthPlace: string | null;
+}
+
+export interface TreeNode extends Individual {
+  children?: TreeNode[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+}
+
+export interface GedcomUploadResponse {
+  message: string;
+  individual_count: number;
+  individuals: Individual[];
+}
+
+export interface TreeResponse {
+  tree: TreeNode | null;
+  root_person: TreeNode | null;
+}

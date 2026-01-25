@@ -1,0 +1,19 @@
+# Copilot SDK (install from GitHub)
+# pip install git+https://github.com/github/copilot-sdk.git#subdirectory=python
+github-copilot-sdk @ git+https://github.com/github/copilot-sdk.git#subdirectory=python
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# HTTP client for API calls
+httpx>=0.26.0
+
+# GEDCOM parsing
+python-gedcom>=1.0.0
+
+# CORS support
+python-multipart>=0.0.6
+
+# Environment variables
+python-dotenv>=1.0.0

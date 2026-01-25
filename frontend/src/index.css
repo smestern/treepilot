@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* Custom styles for TreePilot */
+:root {
+  --primary: #10b981;
+  --primary-dark: #059669;
+  --background: #0f172a;
+  --surface: #1e293b;
+  --surface-light: #334155;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+}
+
+body {
+  @apply bg-slate-900 text-slate-100;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-500;
+}
+
+/* D3 Tree styles */
+.tree-node circle {
+  fill: #10b981;
+  stroke: #059669;
+  stroke-width: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tree-node circle:hover {
+  fill: #34d399;
+  stroke: #10b981;
+  transform: scale(1.1);
+}
+
+.tree-node.male circle {
+  fill: #3b82f6;
+  stroke: #2563eb;
+}
+
+.tree-node.male circle:hover {
+  fill: #60a5fa;
+}
+
+.tree-node.female circle {
+  fill: #ec4899;
+  stroke: #db2777;
+}
+
+.tree-node.female circle:hover {
+  fill: #f472b6;
+}
+
+.tree-node.selected circle {
+  stroke: #fbbf24;
+  stroke-width: 4px;
+}
+
+.tree-node text {
+  font-size: 12px;
+  fill: #f1f5f9;
+  pointer-events: none;
+}
+
+.tree-link {
+  fill: none;
+  stroke: #475569;
+  stroke-width: 2px;
+}
+
+/* Chat message styling */
+.message-content pre {
+  @apply bg-slate-800 p-3 rounded-lg overflow-x-auto my-2;
+}
+
+.message-content code {
+  @apply bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400;
+}
+
+.message-content a {
+  @apply text-emerald-400 hover:text-emerald-300 underline;
+}
+
+.message-content h2 {
+  @apply text-xl font-bold mt-4 mb-2 text-emerald-400;
+}
+
+.message-content h3 {
+  @apply text-lg font-semibold mt-3 mb-1 text-slate-200;
+}
+
+.message-content ul, .message-content ol {
+  @apply ml-4 my-2;
+}
+
+.message-content li {
+  @apply my-1;
+}
+
+.message-content blockquote {
+  @apply border-l-4 border-emerald-500 pl-4 italic text-slate-400 my-2;
+}
+
+/* Drop zone animation */
+.drop-zone {
+  @apply border-2 border-dashed border-slate-600 rounded-xl p-8 text-center transition-all duration-200;
+}
+
+.drop-zone.active {
+  @apply border-emerald-500 bg-emerald-500/10;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500;
+}

@@ -1,0 +1,342 @@
+0 HEAD
+1 SOUR TreePilot
+2 VERS 1.0
+2 NAME TreePilot Genealogy Research Agent
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @SUBM1@
+0 @SUBM1@ SUBM
+1 NAME TreePilot Sample
+0 @I1@ INDI
+1 NAME Sarah /Mitchell/
+2 GIVN Sarah
+2 SURN Mitchell
+1 SEX F
+1 BIRT
+2 DATE 15 MAR 1990
+2 PLAC Portland, Oregon, USA
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME James Robert /Mitchell/
+2 GIVN James Robert
+2 SURN Mitchell
+1 SEX M
+1 BIRT
+2 DATE 22 JUN 1962
+2 PLAC Seattle, Washington, USA
+1 OCCU Software Engineer
+1 FAMS @F1@
+1 FAMC @F2@
+0 @I3@ INDI
+1 NAME Margaret Ann /Sullivan/
+2 GIVN Margaret Ann
+2 SURN Sullivan
+1 SEX F
+1 BIRT
+2 DATE 8 NOV 1965
+2 PLAC San Francisco, California, USA
+1 OCCU Teacher
+1 FAMS @F1@
+1 FAMC @F3@
+0 @I4@ INDI
+1 NAME Robert William /Mitchell/
+2 GIVN Robert William
+2 SURN Mitchell
+1 SEX M
+1 BIRT
+2 DATE 3 APR 1935
+2 PLAC Chicago, Illinois, USA
+1 DEAT
+2 DATE 18 SEP 2015
+2 PLAC Seattle, Washington, USA
+1 OCCU Mechanical Engineer
+1 FAMS @F2@
+1 FAMC @F4@
+0 @I5@ INDI
+1 NAME Eleanor Rose /Thompson/
+2 GIVN Eleanor Rose
+2 SURN Thompson
+1 SEX F
+1 BIRT
+2 DATE 17 JUL 1938
+2 PLAC Minneapolis, Minnesota, USA
+1 OCCU Librarian
+1 FAMS @F2@
+1 FAMC @F5@
+0 @I6@ INDI
+1 NAME Patrick Joseph /Sullivan/
+2 GIVN Patrick Joseph
+2 SURN Sullivan
+1 SEX M
+1 BIRT
+2 DATE 25 DEC 1940
+2 PLAC Boston, Massachusetts, USA
+1 DEAT
+2 DATE 4 JUL 2018
+2 PLAC San Francisco, California, USA
+1 OCCU Police Officer
+1 FAMS @F3@
+1 FAMC @F6@
+0 @I7@ INDI
+1 NAME Catherine Mary /O'Brien/
+2 GIVN Catherine Mary
+2 SURN O'Brien
+1 SEX F
+1 BIRT
+2 DATE 12 FEB 1942
+2 PLAC Dublin, Ireland
+1 IMMI
+2 DATE 1960
+2 PLAC New York, New York, USA
+1 OCCU Nurse
+1 FAMS @F3@
+1 FAMC @F7@
+0 @I8@ INDI
+1 NAME William Henry /Mitchell/
+2 GIVN William Henry
+2 SURN Mitchell
+1 SEX M
+1 BIRT
+2 DATE 9 AUG 1908
+2 PLAC Pittsburgh, Pennsylvania, USA
+1 DEAT
+2 DATE 22 NOV 1985
+2 PLAC Chicago, Illinois, USA
+1 OCCU Steel Worker
+1 FAMS @F4@
+1 FAMC @F8@
+0 @I9@ INDI
+1 NAME Mary Elizabeth /Kowalski/
+2 GIVN Mary Elizabeth
+2 SURN Kowalski
+1 SEX F
+1 BIRT
+2 DATE 30 MAY 1912
+2 PLAC Chicago, Illinois, USA
+1 DEAT
+2 DATE 14 MAR 1998
+2 PLAC Chicago, Illinois, USA
+1 OCCU Homemaker
+1 FAMS @F4@
+1 FAMC @F9@
+0 @I10@ INDI
+1 NAME Charles Edward /Thompson/
+2 GIVN Charles Edward
+2 SURN Thompson
+1 SEX M
+1 BIRT
+2 DATE 6 OCT 1910
+2 PLAC St. Paul, Minnesota, USA
+1 DEAT
+2 DATE 3 JAN 1992
+2 PLAC Minneapolis, Minnesota, USA
+1 OCCU Farmer
+1 FAMS @F5@
+0 @I11@ INDI
+1 NAME Agnes Marie /Larson/
+2 GIVN Agnes Marie
+2 SURN Larson
+1 SEX F
+1 BIRT
+2 DATE 21 APR 1915
+2 PLAC Stockholm, Sweden
+1 IMMI
+2 DATE 1920
+2 PLAC Ellis Island, New York, USA
+1 DEAT
+2 DATE 8 DEC 2005
+2 PLAC Minneapolis, Minnesota, USA
+1 OCCU Seamstress
+1 FAMS @F5@
+0 @I12@ INDI
+1 NAME Michael Francis /Sullivan/
+2 GIVN Michael Francis
+2 SURN Sullivan
+1 SEX M
+1 BIRT
+2 DATE 17 MAR 1912
+2 PLAC Cork, Ireland
+1 IMMI
+2 DATE 1935
+2 PLAC Boston, Massachusetts, USA
+1 DEAT
+2 DATE 28 FEB 1988
+2 PLAC Boston, Massachusetts, USA
+1 OCCU Construction Worker
+1 FAMS @F6@
+0 @I13@ INDI
+1 NAME Bridget Anne /Murphy/
+2 GIVN Bridget Anne
+2 SURN Murphy
+1 SEX F
+1 BIRT
+2 DATE 4 JUN 1915
+2 PLAC Galway, Ireland
+1 IMMI
+2 DATE 1935
+2 PLAC Boston, Massachusetts, USA
+1 DEAT
+2 DATE 15 AUG 1995
+2 PLAC Boston, Massachusetts, USA
+1 OCCU Housekeeper
+1 FAMS @F6@
+0 @I14@ INDI
+1 NAME Sean Patrick /O'Brien/
+2 GIVN Sean Patrick
+2 SURN O'Brien
+1 SEX M
+1 BIRT
+2 DATE 11 NOV 1918
+2 PLAC Dublin, Ireland
+1 DEAT
+2 DATE 7 APR 1980
+2 PLAC Dublin, Ireland
+1 OCCU Publican
+1 FAMS @F7@
+0 @I15@ INDI
+1 NAME Siobhan Rose /Kelly/
+2 GIVN Siobhan Rose
+2 SURN Kelly
+1 SEX F
+1 BIRT
+2 DATE 23 SEP 1920
+2 PLAC Dublin, Ireland
+1 DEAT
+2 DATE 2 FEB 1990
+2 PLAC Dublin, Ireland
+1 OCCU Shopkeeper
+1 FAMS @F7@
+0 @I16@ INDI
+1 NAME George Thomas /Mitchell/
+2 GIVN George Thomas
+2 SURN Mitchell
+1 SEX M
+1 BIRT
+2 DATE 14 FEB 1880
+2 PLAC Philadelphia, Pennsylvania, USA
+1 DEAT
+2 DATE 5 JUN 1945
+2 PLAC Pittsburgh, Pennsylvania, USA
+1 OCCU Railroad Worker
+1 FAMS @F8@
+0 @I17@ INDI
+1 NAME Harriet Louise /Adams/
+2 GIVN Harriet Louise
+2 SURN Adams
+1 SEX F
+1 BIRT
+2 DATE 28 AUG 1885
+2 PLAC Baltimore, Maryland, USA
+1 DEAT
+2 DATE 19 OCT 1960
+2 PLAC Pittsburgh, Pennsylvania, USA
+1 OCCU Seamstress
+1 FAMS @F8@
+0 @I18@ INDI
+1 NAME Stanislaw /Kowalski/
+2 GIVN Stanislaw
+2 SURN Kowalski
+1 SEX M
+1 BIRT
+2 DATE 7 DEC 1882
+2 PLAC Krakow, Poland
+1 IMMI
+2 DATE 1905
+2 PLAC Ellis Island, New York, USA
+1 DEAT
+2 DATE 12 MAY 1955
+2 PLAC Chicago, Illinois, USA
+1 OCCU Factory Worker
+1 FAMS @F9@
+0 @I19@ INDI
+1 NAME Anna /Nowak/
+2 GIVN Anna
+2 SURN Nowak
+1 SEX F
+1 BIRT
+2 DATE 15 MAR 1888
+2 PLAC Warsaw, Poland
+1 IMMI
+2 DATE 1905
+2 PLAC Ellis Island, New York, USA
+1 DEAT
+2 DATE 3 SEP 1968
+2 PLAC Chicago, Illinois, USA
+1 OCCU Homemaker
+1 FAMS @F9@
+0 @I20@ INDI
+1 NAME Thomas Michael /Mitchell/
+2 GIVN Thomas Michael
+2 SURN Mitchell
+1 SEX M
+1 BIRT
+2 DATE 19 JUL 1992
+2 PLAC Portland, Oregon, USA
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+1 CHIL @I20@
+1 MARR
+2 DATE 14 JUN 1988
+2 PLAC Seattle, Washington, USA
+0 @F2@ FAM
+1 HUSB @I4@
+1 WIFE @I5@
+1 CHIL @I2@
+1 MARR
+2 DATE 8 SEP 1960
+2 PLAC Chicago, Illinois, USA
+0 @F3@ FAM
+1 HUSB @I6@
+1 WIFE @I7@
+1 CHIL @I3@
+1 MARR
+2 DATE 22 MAY 1963
+2 PLAC San Francisco, California, USA
+0 @F4@ FAM
+1 HUSB @I8@
+1 WIFE @I9@
+1 CHIL @I4@
+1 MARR
+2 DATE 12 APR 1933
+2 PLAC Chicago, Illinois, USA
+0 @F5@ FAM
+1 HUSB @I10@
+1 WIFE @I11@
+1 CHIL @I5@
+1 MARR
+2 DATE 3 JUL 1936
+2 PLAC Minneapolis, Minnesota, USA
+0 @F6@ FAM
+1 HUSB @I12@
+1 WIFE @I13@
+1 CHIL @I6@
+1 MARR
+2 DATE 17 MAR 1939
+2 PLAC Boston, Massachusetts, USA
+0 @F7@ FAM
+1 HUSB @I14@
+1 WIFE @I15@
+1 CHIL @I7@
+1 MARR
+2 DATE 25 DEC 1940
+2 PLAC Dublin, Ireland
+0 @F8@ FAM
+1 HUSB @I16@
+1 WIFE @I17@
+1 CHIL @I8@
+1 MARR
+2 DATE 6 MAR 1907
+2 PLAC Philadelphia, Pennsylvania, USA
+0 @F9@ FAM
+1 HUSB @I18@
+1 WIFE @I19@
+1 CHIL @I9@
+1 MARR
+2 DATE 15 AUG 1910
+2 PLAC Chicago, Illinois, USA
+0 TRLR

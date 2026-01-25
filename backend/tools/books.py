@@ -11,14 +11,14 @@ logger = logging.getLogger("treepilot.tools.books")
 
 class BooksParams(BaseModel):
     """Parameters for Google Books search."""
-    query: str = Field(description="Search terms (person name, family name, location, topic)")
+    query: str = Field(description="Search terms - can be a full name, surname/family name only, location, region, or topic. For surname searches, finds books about that family name, family histories, and genealogies.")
     category: str | None = Field(default=None, description="Book category filter (e.g., 'genealogy', 'history', 'biography')")
 
 
 GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1/volumes"
 
 
-@define_tool(description="Search Google Books for genealogy guides, local histories, biographies, and family history resources. Useful for finding published works about specific families, regions, or time periods.")
+@define_tool(description="Search Google Books for genealogy resources. Supports flexible queries: full names, surnames/family names only, locations, regions, or topics. For surname searches, finds family histories, genealogies, and books mentioning that family. Useful for finding published works about specific families, regions, or time periods.")
 async def search_books(params: BooksParams) -> str:
     """Search Google Books for genealogy-related books."""
     

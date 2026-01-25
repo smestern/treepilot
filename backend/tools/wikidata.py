@@ -10,7 +10,7 @@ logger = logging.getLogger("treepilot.tools.wikidata")
 
 class WikidataParams(BaseModel):
     """Parameters for Wikidata search."""
-    person_name: str = Field(description="Full name of the person to search for")
+    person_name: str = Field(description="Name to search for. Can be a full name, surname only, or partial name. For surname-only searches, just provide the surname to find all people with that name.")
     include_family: bool = Field(default=True, description="Whether to include family relationships (parents, spouse, children)")
 
 
@@ -72,7 +72,7 @@ def format_date(date_str: str | None) -> str:
     return date_str
 
 
-@define_tool(description="Search Wikidata for structured genealogical data about a person, including birth/death dates, birthplace, and family relationships (parents, spouse, children).")
+@define_tool(description="Search Wikidata for structured genealogical data. Supports flexible queries: full names, surnames only, or partial names. For surname searches, returns all people with that family name. Includes birth/death dates, birthplace, and family relationships.")
 async def search_wikidata(params: WikidataParams) -> str:
     """Search Wikidata for structured genealogical information."""
     

@@ -10,7 +10,7 @@ logger = logging.getLogger("treepilot.tools.newspapers")
 
 class NewspaperParams(BaseModel):
     """Parameters for newspaper search."""
-    query: str = Field(description="Search terms (name, event, location)")
+    query: str = Field(description="Search terms - can be a full name, surname only, family name, event, or location. For surname/family searches, just use the surname to find all mentions of anyone with that name.")
     start_year: int | None = Field(default=None, description="Start year for search (1770-1963)")
     end_year: int | None = Field(default=None, description="End year for search (1770-1963)")
     state: str | None = Field(default=None, description="US state to filter by (e.g., 'New York', 'California')")
@@ -19,7 +19,7 @@ class NewspaperParams(BaseModel):
 CHRONICLING_AMERICA_API = "https://chroniclingamerica.loc.gov/search/pages/results/"
 
 
-@define_tool(description="Search Chronicling America historical newspapers (1770-1963) for mentions of people, events, or places. Great for finding obituaries, birth announcements, marriage notices, and historical context.")
+@define_tool(description="Search Chronicling America historical newspapers (1770-1963). Supports flexible queries: full names, surnames/family names only, locations, or events. For surname searches, finds all newspaper mentions of anyone with that family name. Great for finding obituaries, birth announcements, marriage notices, and historical context.")
 async def search_newspapers(params: NewspaperParams) -> str:
     """Search historical newspapers via Chronicling America API."""
     

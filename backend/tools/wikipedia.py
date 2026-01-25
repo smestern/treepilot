@@ -10,10 +10,10 @@ logger = logging.getLogger("treepilot.tools.wikipedia")
 
 class WikipediaParams(BaseModel):
     """Parameters for Wikipedia search."""
-    query: str = Field(description="Person name or topic to search for on Wikipedia")
+    query: str = Field(description="Search term - can be a person's full name, surname only, family name, location, or any topic. For surname/family searches, just use the surname to find articles about notable people with that name or family histories.")
 
 
-@define_tool(description="Search Wikipedia for biographical and historical information about a person or topic. Returns article summary and key facts.")
+@define_tool(description="Search Wikipedia for biographical and historical information. Supports flexible queries: full names, surnames/family names only, locations, or topics. For surname searches, finds articles about notable people with that name or family histories. Returns article summaries and key facts.")
 async def search_wikipedia(params: WikipediaParams) -> str:
     """Search Wikipedia for information about a person or topic."""
     

@@ -52,13 +52,28 @@ You have access to the following research tools:
 3. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
 4. **Google Books** - Find genealogy guides, local histories, and biographical works
 
+## Query Interpretation - CRITICAL
+Before searching, carefully analyze what the user is actually asking about:
+
+1. **Surname/Family Queries**: If the user asks about a surname or family name (e.g., "Tell me about Spielhausen", "What about the Smith family?"), search for the SURNAME ONLY, not a specific person. This helps find:
+   - All people with that surname
+   - Family histories and genealogies
+   - Regional origins of the name
+   - Historical mentions of anyone with that name
+
+2. **Specific Person Queries**: Only search for a specific full name when the user explicitly mentions both first and last name, or clearly refers to a specific individual.
+
+3. **General Topic Queries**: For questions about places, time periods, or historical events, search broadly.
+
+4. **Use Fuzzy/Broad Searches**: When in doubt, start with broader searches. It's better to find too much and filter than to miss relevant results with an overly specific query.
+
 ## Research Methodology
-When researching a person, follow these steps:
-1. Start with basic identification (full name, approximate dates, locations)
-2. Search for structured data in Wikidata for established facts
-3. Look for biographical context in Wikipedia
-4. Search historical newspapers for primary source mentions
-5. Find relevant books for deeper context
+When researching, follow these steps:
+1. **Interpret the query**: Determine if it's about a surname, specific person, place, or topic
+2. **Start broad**: Use general search terms first (surname alone, location, time period)
+3. **Narrow if needed**: Only narrow searches if initial results are too broad
+4. **Try variations**: Search with name variations, alternate spellings, and related terms
+5. **Cross-reference**: Use multiple sources to verify findings
 
 ## Response Guidelines
 - Always cite your sources with links when available
@@ -68,7 +83,10 @@ When researching a person, follow these steps:
 - Be honest when you cannot find information
 
 ## GEDCOM Context
-If the user has loaded a GEDCOM file, you may receive information about individuals in their family tree. Use this context to provide more targeted research.
+You may receive context about a selected person from the user's family tree. This is REFERENCE CONTEXT ONLY to help understand the family being researched. It does NOT mean every search should be about that specific person:
+- Use it to understand the family, time period, and locations relevant to the research
+- When the user asks about a surname that matches this person's name, search for the SURNAME broadly, not just that specific individual
+- The context provides helpful dates and places for filtering searches, but the user's query determines what to search for
 
 Remember: Genealogical research requires patience and verification. Help users build accurate family histories."""
 
@@ -263,13 +281,18 @@ async def chat(request: ChatRequest):
     if request.person_context:
         context = request.person_context
         logger.info(f"Chat includes person context: {context.get('fullName', 'Unknown')}")
-        prompt = f"""[Research Context]
-Person of Interest: {context.get('fullName', 'Unknown')}
+        prompt = f"""[Family Tree Reference Context - NOT necessarily the search target]
+The user has selected a person from their family tree. Use this as BACKGROUND CONTEXT to understand the family, time period, and region being researched. The user's actual query below determines what to search for.
+
+Selected Person: {context.get('fullName', 'Unknown')}
 Birth Year: {context.get('birthYear', 'Unknown')}
 Death Year: {context.get('deathYear', 'Unknown')}
 Birth Place: {context.get('birthPlace', 'Unknown')}
 
-User Query: {request.prompt}"""
+---
+User's Actual Query: {request.prompt}
+
+IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
     
     # Create session with tools
     logger.info("Creating Copilot session with tools...")
@@ -320,13 +343,18 @@ async def chat_stream(request: ChatRequest):
     if request.person_context:
         context = request.person_context
         logger.info(f"Streaming chat includes person context: {context.get('fullName', 'Unknown')}")
-        prompt = f"""[Research Context]
-Person of Interest: {context.get('fullName', 'Unknown')}
+        prompt = f"""[Family Tree Reference Context - NOT necessarily the search target]
+The user has selected a person from their family tree. Use this as BACKGROUND CONTEXT to understand the family, time period, and region being researched. The user's actual query below determines what to search for.
+
+Selected Person: {context.get('fullName', 'Unknown')}
 Birth Year: {context.get('birthYear', 'Unknown')}
 Death Year: {context.get('deathYear', 'Unknown')}
 Birth Place: {context.get('birthPlace', 'Unknown')}
 
-User Query: {request.prompt}"""
+---
+User's Actual Query: {request.prompt}
+
+IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
     
     async def generate() -> AsyncGenerator[str, None]:
         logger.info("Creating streaming Copilot session...")

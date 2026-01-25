@@ -21,8 +21,11 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string;
+  toolStatus?: string;
   timestamp: Date;
   isStreaming?: boolean;
+  isThinking?: boolean;
 }
 
 export interface GedcomUploadResponse {

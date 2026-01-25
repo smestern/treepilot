@@ -57,8 +57,11 @@ export default function Chat({ selectedPerson }: ChatProps) {
       id: assistantMessageId,
       role: 'assistant',
       content: '',
+      thinking: '',
+      toolStatus: '',
       timestamp: new Date(),
       isStreaming: true,
+      isThinking: false,
     };
     setMessages(prev => [...prev, assistantMessage]);
 
@@ -89,6 +92,8 @@ export default function Chat({ selectedPerson }: ChatProps) {
       }
 
       let fullContent = '';
+      let fullThinking = '';
+      let currentToolStatus = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -105,7 +110,49 @@ export default function Chat({ selectedPerson }: ChatProps) {
             }
             try {
               const parsed = JSON.parse(data);
-              if (parsed.content) {
+              
+              if (parsed.type === 'thinking') {
+                // Accumulate thinking/reasoning content
+                fullThinking += parsed.data;
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, thinking: fullThinking, isThinking: true }
+                      : msg
+                  )
+                );
+              } else if (parsed.type === 'content') {
+                // Accumulate main content
+                fullContent += parsed.data;
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullContent, isThinking: false }
+                      : msg
+                  )
+                );
+              } else if (parsed.type === 'tool_start') {
+                // Tool started
+                currentToolStatus = `🔍 Searching ${parsed.data}...`;
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, toolStatus: currentToolStatus }
+                      : msg
+                  )
+                );
+              } else if (parsed.type === 'tool_end') {
+                // Tool completed
+                currentToolStatus = '';
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, toolStatus: '' }
+                      : msg
+                  )
+                );
+              } else if (parsed.content) {
+                // Legacy format support
                 fullContent += parsed.content;
                 setMessages(prev =>
                   prev.map(msg =>
@@ -219,8 +266,33 @@ export default function Chat({ selectedPerson }: ChatProps) {
               >
                 {message.role === 'assistant' ? (
                   <div className="message-content prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown>{message.content || '...'}</ReactMarkdown>
-                    {message.isStreaming && (
+                    {/* Thinking/Reasoning Section */}
+                    {message.thinking && (
+                      <details className="mb-3 border border-slate-600 rounded-lg overflow-hidden" open={message.isThinking}>
+                        <summary className="px-3 py-2 bg-slate-700 cursor-pointer text-slate-300 text-sm font-medium flex items-center gap-2 hover:bg-slate-600 transition-colors">
+                          <span className="text-purple-400">💭</span>
+                          <span>Thinking...</span>
+                          {message.isThinking && (
+                            <span className="ml-auto inline-block w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                          )}
+                        </summary>
+                        <div className="px-3 py-2 bg-slate-900/50 text-slate-400 text-sm italic whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {message.thinking}
+                        </div>
+                      </details>
+                    )}
+                    
+                    {/* Tool Status */}
+                    {message.toolStatus && (
+                      <div className="mb-2 px-3 py-2 bg-slate-700 rounded-lg text-amber-400 text-sm flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {message.toolStatus}
+                      </div>
+                    )}
+                    
+                    {/* Main Content */}
+                    <ReactMarkdown>{message.content || (message.thinking ? '' : '...')}</ReactMarkdown>
+                    {message.isStreaming && !message.isThinking && (
                       <span className="inline-block w-2 h-4 bg-emerald-500 animate-pulse ml-1" />
                     )}
                   </div>

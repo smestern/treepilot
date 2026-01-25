@@ -384,16 +384,26 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
             
             if event_type == "assistant.message_delta":
                 delta = event.data.delta_content or ""
-                queue.put_nowait(delta)
+                queue.put_nowait({"type": "content", "data": delta})
                 chunks_sent += 1
-            elif event_type == "tool.invocation":
-                # Notify about tool usage
+            elif event_type == "assistant.reasoning_delta":
+                # Stream thinking/reasoning content
+                delta = event.data.delta_content or ""
+                queue.put_nowait({"type": "thinking", "data": delta})
+                chunks_sent += 1
+            elif event_type == "assistant.reasoning":
+                # Final reasoning content (for models that support it)
+                content = getattr(event.data, 'content', '')
+                logger.info(f"Final reasoning received ({len(content)} chars)")
+            elif event_type == "tool.execution_start":
+                # Notify about tool usage starting
                 tool_name = getattr(event.data, 'tool_name', 'unknown')
-                logger.info(f"Tool invoked: {tool_name}")
-                queue.put_nowait(f"\n\n*🔍 Searching {tool_name}...*\n\n")
-            elif event_type == "tool.result":
+                logger.info(f"Tool execution started: {tool_name}")
+                queue.put_nowait({"type": "tool_start", "data": tool_name})
+            elif event_type == "tool.execution_complete":
                 tool_name = getattr(event.data, 'tool_name', 'unknown')
-                logger.info(f"Tool result received: {tool_name}")
+                logger.info(f"Tool execution complete: {tool_name}")
+                queue.put_nowait({"type": "tool_end", "data": tool_name})
             elif event_type == "session.idle":
                 logger.info(f"Streaming session complete, sent {chunks_sent} chunks")
                 done.set()
@@ -404,10 +414,10 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
         
         while not done.is_set() or not queue.empty():
             try:
-                content = await asyncio.wait_for(queue.get(), timeout=0.1)
-                if content:
-                    # SSE format
-                    yield f"data: {json.dumps({'content': content})}\n\n"
+                item = await asyncio.wait_for(queue.get(), timeout=0.1)
+                if item:
+                    # SSE format with type information
+                    yield f"data: {json.dumps(item)}\n\n"
             except asyncio.TimeoutError:
                 continue
         

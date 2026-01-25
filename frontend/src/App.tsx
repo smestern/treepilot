@@ -57,9 +57,9 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="h-screen bg-slate-900 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
+      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <TreeDeciduous className="w-8 h-8 text-emerald-500" />
@@ -123,11 +123,13 @@ function App() {
         )}
 
         {activeTab === 'tree' && (
-          <div className="h-full flex">
+          <div className="h-full flex overflow-hidden">
             {/* Sidebar - Person List */}
-            <aside className="w-80 bg-slate-800 border-r border-slate-700 overflow-y-auto">
-              <div className="p-4">
-                <h2 className="text-lg font-semibold text-white mb-4">Individuals</h2>
+            <aside className="w-80 bg-slate-800 border-r border-slate-700 flex flex-col min-h-0">
+              <div className="p-4 border-b border-slate-700 flex-shrink-0">
+                <h2 className="text-lg font-semibold text-white">Individuals</h2>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 pt-2">
                 <div className="space-y-2">
                   {individuals.map((person) => (
                     <button
@@ -152,7 +154,7 @@ function App() {
             </aside>
 
             {/* Tree Visualization */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative overflow-hidden">
               {(() => {
                 console.log('[TreePilot] Tree render state - isLoading:', isLoading, 'treeData:', treeData ? 'present' : 'null');
                 return null;
@@ -187,7 +189,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-800 border-t border-slate-700 px-6 py-3">
+      <footer className="bg-slate-800 border-t border-slate-700 px-6 py-3 flex-shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-slate-400">
           <span>Built with GitHub Copilot SDK for the Copilot SDK Contest</span>
           <a

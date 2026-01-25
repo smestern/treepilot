@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { TreeNode, Individual } from '../types';
 
@@ -8,9 +8,36 @@ interface AncestorTreeProps {
   selectedId?: string;
 }
 
+// Helper function to limit tree depth
+function limitTreeDepth(node: TreeNode, maxDepth: number, currentDepth = 0): TreeNode {
+  if (currentDepth >= maxDepth) {
+    // Return node without children
+    return { ...node, children: undefined };
+  }
+  
+  if (!node.children || node.children.length === 0) {
+    return node;
+  }
+  
+  return {
+    ...node,
+    children: node.children.map(child => limitTreeDepth(child, maxDepth, currentDepth + 1))
+  };
+}
+
+// Count max depth of tree
+function getTreeDepth(node: TreeNode, depth = 0): number {
+  if (!node.children || node.children.length === 0) {
+    return depth;
+  }
+  return Math.max(...node.children.map(child => getTreeDepth(child, depth + 1)));
+}
+
 export default function AncestorTree({ data, onNodeClick, selectedId }: AncestorTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [maxGenerations, setMaxGenerations] = useState(5);
+  const maxDepth = getTreeDepth(data);
 
   useEffect(() => {
     console.log('[AncestorTree] useEffect triggered');
@@ -29,46 +56,73 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
     d3.select(svgRef.current).selectAll('*').remove();
 
     const container = containerRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
     const margin = { top: 40, right: 120, bottom: 40, left: 120 };
 
-    console.log('[AncestorTree] Container dimensions:', { width, height });
+    console.log('[AncestorTree] Container dimensions:', { width: containerWidth, height: containerHeight });
     
-    if (width === 0 || height === 0) {
+    if (containerWidth === 0 || containerHeight === 0) {
       console.warn('[AncestorTree] Container has zero dimensions, tree cannot render');
       return;
     }
 
+    // Count nodes to calculate appropriate tree dimensions
+    const limitedData = limitTreeDepth(data, maxGenerations);
+    const tempRoot = d3.hierarchy(limitedData);
+    const nodeCount = tempRoot.descendants().length;
+    const nodeSpacing = 50; // pixels between nodes vertically
+    
+    // Calculate tree dimensions - fit to viewport but ensure minimum spacing
+    const minTreeHeight = nodeCount * nodeSpacing;
+    const treeHeight = Math.max(containerHeight - margin.top - margin.bottom, minTreeHeight);
+    const treeWidth = containerWidth - margin.left - margin.right;
+
+    // Create tree layout - horizontal, going right for ancestors
+    const treeLayout = d3.tree<TreeNode>()
+      .size([treeHeight, treeWidth])
+      .separation((a, b) => (a.parent === b.parent ? 1 : 1.5));
+
+    // Create hierarchy and compute layout
+    const root = d3.hierarchy(limitedData);
+    const treeData = treeLayout(root);
+    console.log('[AncestorTree] Hierarchy created, descendants:', root.descendants().length, 'maxGenerations:', maxGenerations);
+
+    // Calculate bounds of the tree
+    const nodes = treeData.descendants();
+    const xExtent = d3.extent(nodes, d => d.y) as [number, number]; // d.y is horizontal position
+    const yExtent = d3.extent(nodes, d => d.x) as [number, number]; // d.x is vertical position
+    const treeBoundsWidth = xExtent[1] - xExtent[0];
+    const treeBoundsHeight = yExtent[1] - yExtent[0];
+
     // Create SVG with zoom behavior
     const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+      .attr('width', containerWidth)
+      .attr('height', containerHeight);
 
-    const g = svg.append('g')
-      .attr('transform', `translate(${margin.left},${height / 2})`);
+    const g = svg.append('g');
 
     // Add zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.3, 3])
+      .scaleExtent([0.1, 3])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
       });
 
     svg.call(zoom);
 
-    // Initial transform to center the tree
-    svg.call(zoom.transform, d3.zoomIdentity.translate(margin.left, height / 2));
-
-    // Create tree layout - horizontal, going right for ancestors
-    const treeLayout = d3.tree<TreeNode>()
-      .size([height - margin.top - margin.bottom, width - margin.left - margin.right])
-      .separation((a, b) => (a.parent === b.parent ? 1 : 1.5));
-
-    // Create hierarchy
-    const root = d3.hierarchy(data);
-    console.log('[AncestorTree] Hierarchy created, descendants:', root.descendants().length);
-    const treeData = treeLayout(root);
+    // Calculate initial scale to fit tree in viewport with padding
+    const padding = 100;
+    const scaleX = (containerWidth - padding * 2) / (treeBoundsWidth || 1);
+    const scaleY = (containerHeight - padding * 2) / (treeBoundsHeight || 1);
+    const scale = Math.min(1, scaleX, scaleY);
+    
+    // Center the tree in the viewport
+    const treeCenterX = (xExtent[0] + xExtent[1]) / 2;
+    const treeCenterY = (yExtent[0] + yExtent[1]) / 2;
+    const initialX = containerWidth / 2 - treeCenterX * scale;
+    const initialY = containerHeight / 2 - treeCenterY * scale;
+    svg.call(zoom.transform, d3.zoomIdentity.translate(initialX, initialY).scale(scale));
     console.log('[AncestorTree] Tree layout computed');
 
     // Create links (curved paths)
@@ -83,8 +137,8 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       .attr('class', 'tree-link')
       .attr('d', linkGenerator as unknown as string);
 
-    // Create nodes
-    const nodes = g.selectAll('.tree-node')
+    // Create node groups
+    const nodeGroups = g.selectAll('.tree-node')
       .data(treeData.descendants())
       .enter()
       .append('g')
@@ -103,11 +157,11 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       });
 
     // Add circles for nodes
-    nodes.append('circle')
+    nodeGroups.append('circle')
       .attr('r', 20);
 
     // Add name labels
-    nodes.append('text')
+    nodeGroups.append('text')
       .attr('dy', '0.35em')
       .attr('x', d => d.children ? -28 : 28)
       .attr('text-anchor', d => d.children ? 'end' : 'start')
@@ -117,7 +171,7 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       });
 
     // Add year labels below name
-    nodes.append('text')
+    nodeGroups.append('text')
       .attr('dy', '1.5em')
       .attr('x', d => d.children ? -28 : 28)
       .attr('text-anchor', d => d.children ? 'end' : 'start')
@@ -132,7 +186,7 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       });
 
     // Add tooltip behavior
-    nodes
+    nodeGroups
       .on('mouseenter', function(_, d) {
         d3.select(this).select('circle')
           .transition()
@@ -148,12 +202,35 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
 
     console.log('[AncestorTree] Tree rendering complete');
 
-  }, [data, selectedId, onNodeClick]);
+  }, [data, selectedId, onNodeClick, maxGenerations]);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-slate-900">
+    <div ref={containerRef} className="absolute inset-0 bg-slate-900">
       <svg ref={svgRef} className="w-full h-full" />
       
+      {/* Generation Control */}
+      <div className="absolute top-4 left-4 bg-slate-800/90 backdrop-blur rounded-lg p-3 text-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-slate-300">Generations:</span>
+          <button
+            onClick={() => setMaxGenerations(g => Math.max(1, g - 1))}
+            disabled={maxGenerations <= 1}
+            className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            −
+          </button>
+          <span className="text-white font-medium w-6 text-center">{maxGenerations}</span>
+          <button
+            onClick={() => setMaxGenerations(g => Math.min(maxDepth, g + 1))}
+            disabled={maxGenerations >= maxDepth}
+            className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            +
+          </button>
+          <span className="text-slate-500 text-xs">of {maxDepth}</span>
+        </div>
+      </div>
+
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-slate-800/90 backdrop-blur rounded-lg p-3 text-sm">
         <div className="flex items-center gap-4">

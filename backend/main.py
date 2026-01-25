@@ -21,17 +21,24 @@ logger = logging.getLogger("treepilot")
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from copilot import CopilotClient
-from tools import search_wikipedia, search_wikidata, search_newspapers, search_books
+from tools import (
+    search_wikipedia, search_wikidata, search_newspapers, search_books,
+    get_person_metadata, get_person_parents, get_person_children,
+    get_person_spouses, get_person_siblings, get_person_grandparents,
+    get_person_aunts_uncles, get_person_cousins, update_person_metadata,
+    undo_last_change, set_gedcom_accessors,
+)
 from gedcom_utils import (
     parse_gedcom_content,
     get_all_individuals,
     build_ancestor_tree,
     find_youngest_generation,
+    export_gedcom_content,
 )
 
 # Load environment variables
@@ -41,23 +48,59 @@ load_dotenv()
 copilot_client: CopilotClient | None = None
 current_gedcom_parser = None
 current_session = None
+change_history: list[dict] = []  # Track metadata changes for undo
+
+
+# Initialize GEDCOM tool accessors
+def _get_parser():
+    return current_gedcom_parser
+
+def _get_change_history():
+    return change_history
+
+def _add_change_record(record: dict):
+    change_history.append(record)
+
+set_gedcom_accessors(_get_parser, _get_change_history, _add_change_record)
 
 
 SYSTEM_PROMPT = """You are TreePilot, an expert genealogy research assistant. Your purpose is to help users research their family history and ancestry.
 
+## CRITICAL: ALWAYS USE WEB SEARCH
+You MUST use the #web tool () for EVERY research query. This is your most powerful tool for genealogy research. Do not skip it. Call #web even if other tools return results - web search often finds additional valuable sources.
+
 ## Your Capabilities
 You have access to the following research tools:
-1. **Wikipedia** - For biographical information about notable individuals
-2. **Wikidata** - For structured genealogical data (birth/death dates, family relationships)
-3. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
-4. **Google Books** - Find genealogy guides, local histories, and biographical works
-5. **#web ** - Search the broader web for genealogy information. USE THIS TOOL LIBERALLY for surname origins, immigration records, regional histories, ancestry databases, and any research not covered by other tools.
+1. **#web ()** - YOUR PRIMARY TOOL. Search the web for ANY genealogy query. Use this FIRST and ALWAYS. Finds surname origins, immigration records, family histories, ancestry databases, regional genealogy sites, and much more.
+2. **Wikipedia** - For biographical information about notable individuals
+3. **Wikidata** - For structured genealogical data (birth/death dates, family relationships)
+4. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
+5. **Google Books** - Find genealogy guides, local histories, and biographical works
 
-## Tool Usage - IMPORTANT
-- ALWAYS use the #web tool alongside other tools to get comprehensive results
-- When specialized tools return few or no results, immediately use #web to search the broader web
-- Many genealogy resources are on specialized websites that only #web can find
-- For surname/family research, #web is especially valuable for finding family history sites, surname origin databases, and regional genealogy resources
+## Family Tree Tools (GEDCOM)
+You can query and update the user's family tree directly:
+
+### Read Tools (query relationships)
+- **get_person_metadata** - Get full details about a person (name, dates, places, occupation, notes)
+- **get_person_parents** - Get a person's parents
+- **get_person_children** - Get a person's children
+- **get_person_spouses** - Get a person's spouse(s)
+- **get_person_siblings** - Get a person's siblings
+- **get_person_grandparents** - Get a person's grandparents
+- **get_person_aunts_uncles** - Get a person's aunts and uncles
+- **get_person_cousins** - Get a person's cousins
+
+### Write Tools (update metadata)
+- **update_person_metadata** - Add or update notes, occupation, birth/death places, or custom facts on a person's record. Use this to save your research findings!
+- **undo_last_change** - Revert the most recent metadata update if needed
+
+When using GEDCOM tools, use the person's ID (e.g., '@I1@') which you can find in the person context or from previous tool calls.
+
+## Tool Usage - MANDATORY
+1. **ALWAYS call #web ()** - For every research request, you MUST invoke the web search tool. No exceptions.
+2. Use other tools (Wikipedia, Wikidata, Newspapers, Books) as supplementary sources
+3. When other tools return no results, #web becomes even more critical
+4. For surname searches, #web finds genealogy-specific databases that other tools cannot access
 
 ## Query Interpretation - CRITICAL
 Before searching, carefully analyze what the user is actually asking about:
@@ -76,12 +119,13 @@ Before searching, carefully analyze what the user is actually asking about:
 
 ## Research Methodology
 When researching, follow these steps:
-1. **Interpret the query**: Determine if it's about a surname, specific person, place, or topic
-2. **Start broad**: Use general search terms first (surname alone, location, time period)
-3. **Use #web alongside other tools**: Always invoke #web to search the broader internet for genealogy resources
-4. **Narrow if needed**: Only narrow searches if initial results are too broad
-5. **Try variations**: Search with name variations, alternate spellings, and related terms
-6. **Cross-reference**: Use multiple sources to verify findings
+1. **FIRST: Call #web ()** - This is mandatory for every query. Search the web immediately.
+2. **Interpret the query**: Determine if it's about a surname, specific person, place, or topic
+3. **Use supplementary tools**: Call Wikipedia, Wikidata, Newspapers, Books as additional sources
+4. **Start broad**: Use general search terms first (surname alone, location, time period)
+5. **Narrow if needed**: Only narrow searches if initial results are too broad
+6. **Try variations**: Search with name variations, alternate spellings, and related terms
+7. **Cross-reference**: Use multiple sources to verify findings
 
 ## Response Guidelines
 - Always cite your sources with links when available
@@ -273,6 +317,53 @@ async def get_youngest_generation():
     return {"individuals": youngest}
 
 
+@app.get("/export-gedcom")
+async def export_gedcom():
+    """Export the current GEDCOM file with any modifications made."""
+    global current_gedcom_parser
+    
+    logger.info("Exporting GEDCOM file")
+    
+    if not current_gedcom_parser:
+        logger.warning("Attempted to export without GEDCOM loaded")
+        raise HTTPException(status_code=400, detail="No GEDCOM file loaded. Upload one first.")
+    
+    try:
+        content = export_gedcom_content(current_gedcom_parser)
+        logger.info(f"Exported GEDCOM with {len(content)} characters")
+        
+        return Response(
+            content=content,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": "attachment; filename=family-tree-export.ged"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to export GEDCOM: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export GEDCOM: {str(e)}")
+
+
+@app.get("/change-history")
+async def get_change_history_endpoint():
+    """Get the list of metadata changes that can be undone."""
+    global change_history
+    
+    logger.debug(f"Fetching change history ({len(change_history)} entries)")
+    
+    return {
+        "count": len(change_history),
+        "changes": [
+            {
+                "person_id": c.get("person_id"),
+                "timestamp": c.get("timestamp"),
+                "fields_changed": [ch.get("field") for ch in c.get("changes", [])]
+            }
+            for c in change_history
+        ]
+    }
+
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
     """Non-streaming chat endpoint."""
@@ -304,9 +395,18 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
     
     # Create session with tools
     logger.info("Creating Copilot session with tools...")
+    all_tools = [
+        # External research tools
+        search_wikipedia, search_wikidata, search_newspapers, search_books,
+        # GEDCOM tree tools
+        get_person_metadata, get_person_parents, get_person_children,
+        get_person_spouses, get_person_siblings, get_person_grandparents,
+        get_person_aunts_uncles, get_person_cousins,
+        update_person_metadata, undo_last_change,
+    ]
     session = await copilot_client.create_session({
         "model": "gpt-4.1",
-        "tools": [search_wikipedia, search_wikidata, search_newspapers, search_books],
+        "tools": all_tools,
         "system_message": {"content": SYSTEM_PROMPT},
     })
     logger.debug("Copilot session created")
@@ -366,10 +466,19 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
     
     async def generate() -> AsyncGenerator[str, None]:
         logger.info("Creating streaming Copilot session...")
+        all_tools = [
+            # External research tools
+            search_wikipedia, search_wikidata, search_newspapers, search_books,
+            # GEDCOM tree tools
+            get_person_metadata, get_person_parents, get_person_children,
+            get_person_spouses, get_person_siblings, get_person_grandparents,
+            get_person_aunts_uncles, get_person_cousins,
+            update_person_metadata, undo_last_change,
+        ]
         session = await copilot_client.create_session({
             "model": "gpt-4.1",
             "streaming": True,
-            "tools": [search_wikipedia, search_wikidata, search_newspapers, search_books],
+            "tools": all_tools,
             "system_message": {"content": SYSTEM_PROMPT},
         })
         logger.debug("Streaming session created")

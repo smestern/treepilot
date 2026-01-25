@@ -121,12 +121,16 @@ A sample GEDCOM file is included (`sample-family.ged`) with a fictional 4-genera
 | `/individuals` | GET | List all individuals |
 | `/tree/{person_id}` | GET | Get ancestor tree for a person |
 | `/youngest` | GET | Get youngest generation |
+| `/export-gedcom` | GET | Download modified GEDCOM file |
+| `/change-history` | GET | View metadata change history |
 | `/chat` | POST | Non-streaming chat |
 | `/chat/stream` | POST | Streaming chat (SSE) |
 
 ## Research Tools
 
 The AI agent has access to:
+
+### External Research Tools
 
 1. **Wikipedia** (`search_wikipedia`)
    - Biographical information
@@ -147,6 +151,24 @@ The AI agent has access to:
    - Genealogy guides
    - Local histories
    - Biographical works
+
+### Family Tree Tools (GEDCOM)
+
+The AI can query and update your family tree directly:
+
+**Read Tools:**
+- `get_person_metadata` - Full details (name, dates, places, occupation, notes)
+- `get_person_parents` - Get a person's parents
+- `get_person_children` - Get a person's children
+- `get_person_spouses` - Get a person's spouse(s)
+- `get_person_siblings` - Get a person's siblings
+- `get_person_grandparents` - Get a person's grandparents
+- `get_person_aunts_uncles` - Get a person's aunts and uncles
+- `get_person_cousins` - Get a person's cousins
+
+**Write Tools:**
+- `update_person_metadata` - Add/update notes, occupation, birth/death places, custom facts
+- `undo_last_change` - Revert the most recent metadata update
 
 ## Environment Variables
 

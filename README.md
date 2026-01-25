@@ -65,18 +65,18 @@ cd treepilot
 ```bash
 cd backend
 
+copilot --server --port 4321 #can be changed, but change the binding in main.py
 # Create virtual environment
 python -m venv venv
 venv\Scripts\activate  # Windows
 # source venv/bin/activate  # macOS/Linux
 
-copilot --server --port 4321 #can be changed, but change the binding in main.py
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Start the server
-python main.py
+.\venv\Scripts\python.exe main.py
 ```
 
 The backend runs on `http://localhost:8000`

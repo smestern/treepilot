@@ -67,11 +67,11 @@ set_gedcom_accessors(_get_parser, _get_change_history, _add_change_record)
 SYSTEM_PROMPT = """You are TreePilot, an expert genealogy research assistant. Your purpose is to help users research their family history and ancestry.
 
 ## CRITICAL: ALWAYS USE WEB SEARCH
-You MUST use the #web tool () for EVERY research query. This is your most powerful tool for genealogy research. Do not skip it. Call #web even if other tools return results - web search often finds additional valuable sources.
+You MUST use the #web tool for EVERY research query. This is your most powerful tool for genealogy research. Do not skip it. Call #web even if other tools return results - web search often finds additional valuable sources.
 
 ## Your Capabilities
 You have access to the following research tools:
-1. **#web ()** - YOUR PRIMARY TOOL. Search the web for ANY genealogy query. Use this FIRST and ALWAYS. Finds surname origins, immigration records, family histories, ancestry databases, regional genealogy sites, and much more.
+1. **#web** - YOUR PRIMARY TOOL. Search the web for ANY genealogy query. Use this FIRST and ALWAYS. Finds surname origins, immigration records, family histories, ancestry databases, regional genealogy sites, and much more.
 2. **Wikipedia** - For biographical information about notable individuals
 3. **Wikidata** - For structured genealogical data (birth/death dates, family relationships)
 4. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
@@ -97,7 +97,7 @@ You can query and update the user's family tree directly:
 When using GEDCOM tools, use the person's ID (e.g., '@I1@') which you can find in the person context or from previous tool calls.
 
 ## Tool Usage - MANDATORY
-1. **ALWAYS call #web ()** - For every research request, you MUST invoke the web search tool. No exceptions.
+1. **ALWAYS call #web ** - For every research request, you MUST invoke the web search tool. No exceptions.
 2. Use other tools (Wikipedia, Wikidata, Newspapers, Books) as supplementary sources
 3. When other tools return no results, #web becomes even more critical
 4. For surname searches, #web finds genealogy-specific databases that other tools cannot access
@@ -344,6 +344,34 @@ async def export_gedcom():
         raise HTTPException(status_code=500, detail=f"Failed to export GEDCOM: {str(e)}")
 
 
+@app.get("/person/{person_id}")
+async def get_person_details(person_id: str):
+    """Get full metadata details for a specific person."""
+    global current_gedcom_parser
+    
+    logger.info(f"Fetching details for person_id={person_id}")
+    
+    if not current_gedcom_parser:
+        logger.warning("Attempted to get person details without GEDCOM loaded")
+        raise HTTPException(status_code=400, detail="No GEDCOM file loaded. Upload one first.")
+    
+    # person_id comes URL-encoded, need to handle @ symbols
+    if not person_id.startswith('@'):
+        person_id = f"@{person_id}@"
+        logger.debug(f"Normalized person_id to: {person_id}")
+    
+    from gedcom_utils import get_person_full_details
+    result = get_person_full_details(current_gedcom_parser, person_id)
+    
+    if isinstance(result, str):
+        # Error message returned
+        logger.warning(f"Person {person_id} not found: {result}")
+        raise HTTPException(status_code=404, detail=result)
+    
+    logger.debug(f"Successfully fetched details for {person_id}")
+    return result
+
+
 @app.get("/change-history")
 async def get_change_history_endpoint():
     """Get the list of metadata changes that can be undone."""
@@ -392,7 +420,7 @@ Birth Place: {context.get('birthPlace', 'Unknown')}
 User's Actual Query: {request.prompt}
 
 IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
-    
+   
     # Create session with tools
     logger.info("Creating Copilot session with tools...")
     all_tools = [
@@ -407,6 +435,16 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
     session = await copilot_client.create_session({
         "model": "gpt-4.1",
         "tools": all_tools,
+        "custom_agents": [
+            {
+                "name": "web-researcher",
+                "display_name": "Web Researcher",
+                "description": "Searches the web for genealogy information, surname origins, immigration records, and family histories",
+                "prompt": "You are a web research specialist. Use the web tool to search for genealogy information.",
+                "tools": ["web_search"],
+                "infer": True,
+            }
+        ],
         "system_message": {"content": SYSTEM_PROMPT},
     })
     logger.debug("Copilot session created")
@@ -479,6 +517,16 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
             "model": "gpt-4.1",
             "streaming": True,
             "tools": all_tools,
+            "custom_agents": [
+                {
+                    "name": "web-researcher",
+                    "display_name": "Web Researcher",
+                    "description": "Searches the web for genealogy information, surname origins, immigration records, and family histories",
+                    "prompt": "You are a web research specialist. Use the web tool to search for genealogy information.",
+                    "tools": ["web"],
+                    "infer": True,
+                }
+            ],
             "system_message": {"content": SYSTEM_PROMPT},
         })
         logger.debug("Streaming session created")

@@ -130,3 +130,38 @@ body {
 .spinner {
   @apply animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500;
 }
+
+/* Resizable divider */
+.resizable-divider {
+  position: relative;
+}
+
+.resizable-divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  right: -4px;
+  bottom: 0;
+  cursor: col-resize;
+}
+
+/* Session sidebar */
+.session-sidebar {
+  min-width: 48px;
+}
+
+.session-item {
+  border: 1px solid transparent;
+}
+
+.session-delete {
+  flex-shrink: 0;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 768px) {
+  .session-sidebar {
+    width: 48px !important;
+  }
+}

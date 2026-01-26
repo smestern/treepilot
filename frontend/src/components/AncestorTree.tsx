@@ -1,12 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { TreeNode, Individual } from '../types';
+import PersonPopover from './PersonPopover';
 
 interface AncestorTreeProps {
   data: TreeNode;
   onNodeClick: (person: Individual) => void;
   selectedId?: string;
 }
+
+// Hover state type
+interface HoverState {
+  id: string;
+  x: number;
+  y: number;
+}
+
+// Hover delay in milliseconds
+const HOVER_DELAY = 300;
+const CLOSE_DELAY = 100;
 
 // Helper function to limit tree depth
 function limitTreeDepth(node: TreeNode, maxDepth: number, currentDepth = 0): TreeNode {
@@ -38,6 +50,56 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
   const containerRef = useRef<HTMLDivElement>(null);
   const [maxGenerations, setMaxGenerations] = useState(5);
   const maxDepth = getTreeDepth(data);
+
+  // Popover state
+  const [hoveredNode, setHoveredNode] = useState<HoverState | null>(null);
+  const [pinnedNode, setPinnedNode] = useState<HoverState | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentZoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  
+  // Refs for D3 event handlers to access current state without re-rendering tree
+  const pinnedNodeRef = useRef<HoverState | null>(null);
+  const hoveredNodeRef = useRef<HoverState | null>(null);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    pinnedNodeRef.current = pinnedNode;
+  }, [pinnedNode]);
+  
+  useEffect(() => {
+    hoveredNodeRef.current = hoveredNode;
+  }, [hoveredNode]);
+
+  // Clear timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle pin toggle
+  const handlePin = useCallback(() => {
+    if (pinnedNode) {
+      setPinnedNode(null);
+    } else if (hoveredNode) {
+      setPinnedNode(hoveredNode);
+    }
+  }, [hoveredNode, pinnedNode]);
+
+  // Handle close
+  const handleClose = useCallback(() => {
+    setPinnedNode(null);
+    setHoveredNode(null);
+  }, []);
+
+  // Get active popover node (pinned takes precedence)
+  const activeNode = pinnedNode || hoveredNode;
 
   useEffect(() => {
     console.log('[AncestorTree] useEffect triggered');
@@ -107,6 +169,19 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       .scaleExtent([0.1, 3])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
+        currentZoomRef.current = event.transform;
+        
+        // Update pinned node position on zoom
+        const currentPinned = pinnedNodeRef.current;
+        if (currentPinned) {
+          const nodeData = treeData.descendants().find(n => n.data.id === currentPinned.id);
+          if (nodeData && containerRef.current) {
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const screenX = event.transform.applyX(nodeData.y) + containerRect.left;
+            const screenY = event.transform.applyY(nodeData.x) + containerRect.top;
+            setPinnedNode({ id: currentPinned.id, x: screenX, y: screenY });
+          }
+        }
       });
 
     svg.call(zoom);
@@ -185,19 +260,59 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
         return '';
       });
 
-    // Add tooltip behavior
+    // Add hover/popover behavior
     nodeGroups
       .on('mouseenter', function(_, d) {
+        // Scale up circle
         d3.select(this).select('circle')
           .transition()
           .duration(200)
           .attr('r', 25);
+        
+        // Cancel any pending close
+        if (closeTimeoutRef.current) {
+          clearTimeout(closeTimeoutRef.current);
+          closeTimeoutRef.current = null;
+        }
+        
+        // Set hover with delay (unless pinned to this node)
+        if (pinnedNodeRef.current?.id === d.data.id) return;
+        
+        // Clear any existing hover timeout
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+        
+        // Start delay timer
+        hoverTimeoutRef.current = setTimeout(() => {
+          if (containerRef.current) {
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const transform = currentZoomRef.current;
+            const screenX = transform.applyX(d.y) + containerRect.left;
+            const screenY = transform.applyY(d.x) + containerRect.top;
+            setHoveredNode({ id: d.data.id, x: screenX, y: screenY });
+          }
+        }, HOVER_DELAY);
       })
       .on('mouseleave', function() {
+        // Scale down circle
         d3.select(this).select('circle')
           .transition()
           .duration(200)
           .attr('r', 20);
+        
+        // Clear hover timeout
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+        
+        // Clear hovered node with a small delay (but not if pinned)
+        if (!pinnedNodeRef.current) {
+          closeTimeoutRef.current = setTimeout(() => {
+            setHoveredNode(null);
+          }, CLOSE_DELAY);
+        }
       });
 
     console.log('[AncestorTree] Tree rendering complete');
@@ -248,9 +363,19 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
           </div>
         </div>
         <p className="text-slate-500 mt-2 text-xs">
-          Click a person to research • Scroll to zoom • Drag to pan
+          Hover for info • Click to research • Scroll to zoom • Drag to pan
         </p>
       </div>
+
+      {/* Person Info Popover */}
+      <PersonPopover
+        personId={activeNode?.id ?? null}
+        position={activeNode ? { x: activeNode.x, y: activeNode.y } : null}
+        isPinned={Boolean(pinnedNode)}
+        onPin={handlePin}
+        onClose={handleClose}
+        containerRef={containerRef as React.RefObject<HTMLDivElement>}
+      />
     </div>
   );
 }

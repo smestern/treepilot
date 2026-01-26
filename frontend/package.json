@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-popover": "^1.1.15",
     "d3": "^7.8.5",
     "lucide-react": "^0.303.0",
     "react": "^18.3.1",

@@ -38,3 +38,27 @@ export interface TreeResponse {
   tree: TreeNode | null;
   root_person: TreeNode | null;
 }
+
+export interface PersonMetadata {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  gender: 'M' | 'F' | 'U';
+  birthYear: number | null;
+  deathYear: number | null;
+  birthPlace: string | null;
+  deathPlace: string | null;
+  occupation: string | null;
+  notes: string[];
+  customFacts: Record<string, string[]>;
+}
+
+// Chat session for multi-session support
+export interface ChatSession {
+  id: string;
+  name: string;
+  messages: ChatMessage[];
+  personContext: Individual | null;
+  createdAt: number;
+}

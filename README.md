@@ -11,6 +11,9 @@
 - **AI Research Agent** - Powered by GitHub Copilot SDK with custom tools
 - **Multi-Source Research** - Searches Wikipedia, Wikidata, historical newspapers, and Google Books
 
+## *******Important*** remember to enable bing web search.
+- For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/)
+
 ## Screenshots
 
 *Coming soon!*

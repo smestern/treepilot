@@ -404,14 +404,28 @@ function App() {
       <footer className="bg-slate-800 border-t border-slate-700 px-6 py-2 flex-shrink-0">
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span>Built with GitHub Copilot SDK for the Copilot SDK Contest</span>
-          <a
-            href="https://github.com/github/copilot-sdk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-emerald-400 hover:text-emerald-300"
-          >
-            Powered by Copilot SDK
-          </a>
+          <div className="flex items-center gap-4">
+            <span>
+              Created by smestern (
+              <a
+                href="https://www.smestern.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300"
+              >
+                find me here
+              </a>
+              )
+            </span>
+            <a
+              href="https://github.com/github/copilot-sdk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300"
+            >
+              Powered by Copilot SDK
+            </a>
+          </div>
         </div>
       </footer>
     </div>

@@ -152,8 +152,8 @@ async def lifespan(app: FastAPI):
     # Start the CLI separately with: copilot --server --port 4321
     logger.info("Initializing Copilot client...")
     copilot_client = CopilotClient({
-        "cli_url": "localhost:4321",  # Connect to external server
-        "log_level": "info",
+        "cli_path":"copilot",
+        "log_level": "all",
     })
     await copilot_client.start()
     logger.info("✓ Copilot client started and connected to localhost:4321")
@@ -433,18 +433,16 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
         update_person_metadata, undo_last_change,
     ]
     session = await copilot_client.create_session({
-        "model": "gpt-4.1",
+        "model": "claude-sonnet-4.5",
         "tools": all_tools,
-        "custom_agents": [
-            {
-                "name": "web-researcher",
-                "display_name": "Web Researcher",
-                "description": "Searches the web for genealogy information, surname origins, immigration records, and family histories",
-                "prompt": "You are a web research specialist. Use the web tool to search for genealogy information.",
-                "tools": ["web_search"],
-                "infer": True,
-            }
-        ],
+        "mcp_servers": {
+            # Remote MCP server (HTTP)
+                    "github-mcp-server": {
+                        "type": "http",
+                        "url": "https://api.individual.githubcopilot.com/mcp/readonly",
+                        "headers": {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}"},
+                    },
+                },
         "system_message": {"content": SYSTEM_PROMPT},
     })
     logger.debug("Copilot session created")
@@ -504,29 +502,30 @@ IMPORTANT: Analyze the user's query to determine what they're actually asking ab
     
     async def generate() -> AsyncGenerator[str, None]:
         logger.info("Creating streaming Copilot session...")
-        all_tools = [
+        all_tools = [ \
             # External research tools
             search_wikipedia, search_wikidata, search_newspapers, search_books,
-            # GEDCOM tree tools
+            #GEDCOM tree tools
             get_person_metadata, get_person_parents, get_person_children,
             get_person_spouses, get_person_siblings, get_person_grandparents,
             get_person_aunts_uncles, get_person_cousins,
             update_person_metadata, undo_last_change,
         ]
         session = await copilot_client.create_session({
-            "model": "gpt-4.1",
+            "model": "claude-sonnet-4.5",
             "streaming": True,
-            "tools": all_tools,
-            "custom_agents": [
-                {
-                    "name": "web-researcher",
-                    "display_name": "Web Researcher",
-                    "description": "Searches the web for genealogy information, surname origins, immigration records, and family histories",
-                    "prompt": "You are a web research specialist. Use the web tool to search for genealogy information.",
-                    "tools": ["web"],
-                    "infer": True,
-                }
-            ],
+            "tools": [],  # No tools for streaming for now
+            "mcp_servers": {
+            # Remote MCP server (HTTP)
+                    "github-mcp-server": {
+                        "type": "http",
+                        "url": "https://api.individual.githubcopilot.com/mcp/readonly",
+                        "headers": {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}",
+                                    "X-MCP-Tools": "web_search"},
+                        "tools": ["*"],
+
+                    },
+                },
             "system_message": {"content": SYSTEM_PROMPT},
         })
         logger.debug("Streaming session created")

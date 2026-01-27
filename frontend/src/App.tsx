@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { TreeDeciduous, Upload, Download, RefreshCw } from 'lucide-react';
+import { TreeDeciduous, Upload, Download, RefreshCw, Search } from 'lucide-react';
 import Chat from './components/Chat';
 import GedcomImporter from './components/GedcomImporter';
 import AncestorTree from './components/AncestorTree';
@@ -22,6 +22,7 @@ function createNewSession(personContext: Individual | null = null): ChatSession 
 
 function App() {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Individual | null>(null);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -328,10 +329,35 @@ function App() {
                 ({individuals.length})
               </span>
             </h2>
+            
+            {/* Search Input */}
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             <div className="space-y-1">
-              {individuals.map((person) => (
+              {individuals
+                .filter((person) => {
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  const fullName = (person.fullName || '').toLowerCase();
+                  const firstName = (person.firstName || '').toLowerCase();
+                  const lastName = (person.lastName || '').toLowerCase();
+                  return (
+                    fullName.includes(query) ||
+                    firstName.includes(query) ||
+                    lastName.includes(query)
+                  );
+                })
+                .map((person) => (
                 <button
                   key={person.id}
                   onClick={() => handlePersonSelect(person)}

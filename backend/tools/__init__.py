@@ -17,10 +17,10 @@ from .gedcom_tree import (
 )
 
 __all__ = [
-    "search_wikipedia",
-    "search_wikidata", 
-    "search_newspapers",
-    "search_books",
+    # "search_wikipedia",
+    # "search_wikidata", 
+    # "search_newspapers",
+    # "search_books",
     # GEDCOM tree tools
     "get_person_metadata",
     "get_person_parents",

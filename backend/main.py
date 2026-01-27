@@ -392,6 +392,70 @@ async def get_change_history_endpoint():
     }
 
 
+# Helper functions for chat endpoints
+def _get_all_tools():
+    """Get the complete list of tools for Copilot sessions."""
+    return [
+        # External research tools
+        search_wikipedia, search_wikidata, search_newspapers, search_books,
+        # GEDCOM tree tools
+        get_person_metadata, get_person_parents, get_person_children,
+        get_person_spouses, get_person_siblings, get_person_grandparents,
+        get_person_aunts_uncles, get_person_cousins,
+        update_person_metadata, undo_last_change,
+    ]
+
+def _get_banned_tools():
+    """Get the list of banned tools (none currently)."""
+    return [
+        "powershell", "write_powershell", "read_powershell", "view", "create", "edit"
+    ]
+
+
+def _build_prompt_with_context(prompt: str, person_context: dict | None) -> str:
+    """Build a chat prompt with optional person context."""
+    if not person_context:
+        return prompt
+    
+    context = person_context
+    logger.info(f"Chat includes person context: {context.get('fullName', 'Unknown')}")
+    
+    return f"""[Family Tree Reference Context - NOT necessarily the search target]
+The user has selected a person from their family tree. Use this as BACKGROUND CONTEXT to understand the family, time period, and region being researched. The user's actual query below determines what to search for.
+
+Selected Person: {context.get('fullName', 'Unknown')}
+Birth Year: {context.get('birthYear', 'Unknown')}
+Death Year: {context.get('deathYear', 'Unknown')}
+Birth Place: {context.get('birthPlace', 'Unknown')}
+
+---
+User's Actual Query: {prompt}
+
+IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
+
+
+def _get_mcp_servers(streaming: bool = False) -> dict:
+    """Get the MCP servers configuration.
+    
+    Args:
+        streaming: If True, includes streaming-specific configuration (X-MCP-Tools header and tools list).
+    """
+    headers = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}"}
+    config = {
+        "type": "http",
+        "url": "https://api.individual.githubcopilot.com/mcp/readonly",
+        "headers": headers,
+    }
+    
+    if streaming:
+        headers["X-MCP-Tools"] = "web_search"
+        config["tools"] = ["*"]
+    
+    return {
+        "github-mcp-server": config
+    }
+
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
     """Non-streaming chat endpoint."""
@@ -404,45 +468,15 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=503, detail="Copilot client not initialized")
     
     # Build prompt with person context if provided
-    prompt = request.prompt
-    if request.person_context:
-        context = request.person_context
-        logger.info(f"Chat includes person context: {context.get('fullName', 'Unknown')}")
-        prompt = f"""[Family Tree Reference Context - NOT necessarily the search target]
-The user has selected a person from their family tree. Use this as BACKGROUND CONTEXT to understand the family, time period, and region being researched. The user's actual query below determines what to search for.
-
-Selected Person: {context.get('fullName', 'Unknown')}
-Birth Year: {context.get('birthYear', 'Unknown')}
-Death Year: {context.get('deathYear', 'Unknown')}
-Birth Place: {context.get('birthPlace', 'Unknown')}
-
----
-User's Actual Query: {request.prompt}
-
-IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
+    prompt = _build_prompt_with_context(request.prompt, request.person_context)
    
     # Create session with tools
     logger.info("Creating Copilot session with tools...")
-    all_tools = [
-        # External research tools
-        search_wikipedia, search_wikidata, search_newspapers, search_books,
-        # GEDCOM tree tools
-        get_person_metadata, get_person_parents, get_person_children,
-        get_person_spouses, get_person_siblings, get_person_grandparents,
-        get_person_aunts_uncles, get_person_cousins,
-        update_person_metadata, undo_last_change,
-    ]
     session = await copilot_client.create_session({
         "model": "claude-sonnet-4.5",
-        "tools": all_tools,
-        "mcp_servers": {
-            # Remote MCP server (HTTP)
-                    "github-mcp-server": {
-                        "type": "http",
-                        "url": "https://api.individual.githubcopilot.com/mcp/readonly",
-                        "headers": {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}"},
-                    },
-                },
+        "tools": _get_all_tools(),
+        "mcp_servers": _get_mcp_servers(),
+        "excluded_tools": _get_banned_tools(),
         "system_message": {"content": SYSTEM_PROMPT},
     })
     logger.debug("Copilot session created")
@@ -483,49 +517,16 @@ async def chat_stream(request: ChatRequest):
         raise HTTPException(status_code=503, detail="Copilot client not initialized")
     
     # Build prompt with person context if provided
-    prompt = request.prompt
-    if request.person_context:
-        context = request.person_context
-        logger.info(f"Streaming chat includes person context: {context.get('fullName', 'Unknown')}")
-        prompt = f"""[Family Tree Reference Context - NOT necessarily the search target]
-The user has selected a person from their family tree. Use this as BACKGROUND CONTEXT to understand the family, time period, and region being researched. The user's actual query below determines what to search for.
-
-Selected Person: {context.get('fullName', 'Unknown')}
-Birth Year: {context.get('birthYear', 'Unknown')}
-Death Year: {context.get('deathYear', 'Unknown')}
-Birth Place: {context.get('birthPlace', 'Unknown')}
-
----
-User's Actual Query: {request.prompt}
-
-IMPORTANT: Analyze the user's query to determine what they're actually asking about. If they ask about a surname, search for the surname broadly. If they ask about a location or topic, search for that. Only search for the specific selected person if the user's query explicitly references them."""
+    prompt = _build_prompt_with_context(request.prompt, request.person_context)
     
     async def generate() -> AsyncGenerator[str, None]:
         logger.info("Creating streaming Copilot session...")
-        all_tools = [ \
-            # External research tools
-            search_wikipedia, search_wikidata, search_newspapers, search_books,
-            #GEDCOM tree tools
-            get_person_metadata, get_person_parents, get_person_children,
-            get_person_spouses, get_person_siblings, get_person_grandparents,
-            get_person_aunts_uncles, get_person_cousins,
-            update_person_metadata, undo_last_change,
-        ]
         session = await copilot_client.create_session({
             "model": "claude-sonnet-4.5",
             "streaming": True,
-            "tools": [],  # No tools for streaming for now
-            "mcp_servers": {
-            # Remote MCP server (HTTP)
-                    "github-mcp-server": {
-                        "type": "http",
-                        "url": "https://api.individual.githubcopilot.com/mcp/readonly",
-                        "headers": {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}",
-                                    "X-MCP-Tools": "web_search"},
-                        "tools": ["*"],
-
-                    },
-                },
+            "tools":  _get_all_tools(),
+            "mcp_servers": _get_mcp_servers(streaming=True),
+            "excluded_tools": _get_banned_tools(),
             "system_message": {"content": SYSTEM_PROMPT},
         })
         logger.debug("Streaming session created")

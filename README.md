@@ -41,19 +41,8 @@
 ## Prerequisites
 ## *******Important*** remember to enable bing web search.
 - For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/)
-1. **GitHub Copilot subscription** (or free tier)
-2. **Copilot CLI** installed:
-   ```bash
-   # Install GitHub CLI if not already installed
-   winget install GitHub.cli   # Windows
-   brew install gh             # macOS
-   
-   # Install Copilot extension
-   gh extension install github/gh-copilot
-   
-   # Verify installation
-   gh copilot --version
-   ```
+1. **GitHub Copilot subscription** and a git PAT token
+2. **Copilot CLI** installed
 3. **Python 3.9+** and **Node.js 18+**
 
 ## Quick Start
@@ -64,18 +53,19 @@
 git clone https://github.com/yourusername/treepilot.git
 cd treepilot
 ```
+### 2. Config your .env
+
+Config your .env file with your GITHUB token, and google books token (optional)
 
 ### 2. Backend Setup
 
 ```bash
 cd backend
 
-copilot --server --port 4321 #can be changed, but change the binding in main.py
 # Create virtual environment
 python -m venv venv
 venv\Scripts\activate  # Windows
 # source venv/bin/activate  # macOS/Linux
-
 
 # Install dependencies
 pip install -r requirements.txt
@@ -180,9 +170,21 @@ The AI can query and update your family tree directly:
 Create a `.env` file in the `backend` folder:
 
 ```env
+# GitHub token for MCP server authentication (required)
+GITHUB_TOKEN=your_github_token_here
+
 # Optional: Google Books API key for higher rate limits
 GOOGLE_BOOKS_API_KEY=your_api_key_here
 ```
+
+### Getting a GitHub Token
+
+1. Go to [GitHub Settings > Personal Access Tokens](https://github.com/settings/tokens)
+2. Click "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "TreePilot MCP")
+4. Select appropriate scopes (minimal permissions needed)
+5. Generate and copy the token
+6. Add it to your `.env` file as `GITHUB_TOKEN=ghp_...`
 
 ## License
 

@@ -6,7 +6,7 @@ Write-Host "Starting TreePilot Development Environment..." -ForegroundColor Gree
 # Get the script's directory (project root)
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Start GitHub Copilot Server in a new PowerShell window
+# Start GitHub Copilot Server in a new PowerShell window if needed
 #Write-Host "Launching GitHub Copilot Server..." -ForegroundColor Magenta
 #Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host 'GitHub Copilot Server Starting on port 4321...' -ForegroundColor Magenta; copilot --server --port 4321"
 
@@ -28,7 +28,6 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$FrontendPath
 
 Write-Host ""
 Write-Host "All services are starting in separate windows!" -ForegroundColor Green
-Write-Host "Copilot:  port 4321" -ForegroundColor Magenta
 Write-Host "Backend:  http://localhost:8000" -ForegroundColor Yellow
 Write-Host "Frontend: http://localhost:5173 (typical Vite port)" -ForegroundColor Yellow
 Write-Host ""

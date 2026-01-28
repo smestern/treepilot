@@ -15,6 +15,9 @@ export interface Individual {
 
 export interface TreeNode extends Individual {
   children?: TreeNode[];
+  ancestors?: TreeNode[];
+  descendants?: TreeNode[];
+  direction?: 'root' | 'ancestor' | 'descendant';
 }
 
 export interface ChatMessage {

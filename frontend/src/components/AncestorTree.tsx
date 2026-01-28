@@ -37,19 +37,70 @@ function limitTreeDepth(node: TreeNode, maxDepth: number, currentDepth = 0): Tre
   };
 }
 
-// Count max depth of tree
+// Count max depth of tree (for ancestors)
 function getTreeDepth(node: TreeNode, depth = 0): number {
   if (!node.children || node.children.length === 0) {
+    // Also check ancestors array for bidirectional tree
+    if (node.ancestors && node.ancestors.length > 0) {
+      return Math.max(...node.ancestors.map(a => getTreeDepth({ ...a, children: a.children }, depth + 1)));
+    }
     return depth;
   }
   return Math.max(...node.children.map(child => getTreeDepth(child, depth + 1)));
 }
 
+// Get max depth for descendants
+function getDescendantDepth(node: TreeNode, depth = 0): number {
+  if (!node.descendants && !node.children) {
+    return depth;
+  }
+  const children = node.descendants || node.children || [];
+  if (children.length === 0) return depth;
+  return Math.max(...children.map(child => getDescendantDepth(child, depth + 1)));
+}
+
+// Prepare ancestor tree structure for D3
+function prepareAncestorTree(rootData: TreeNode, maxGenerations: number): TreeNode | null {
+  if (!rootData.ancestors || rootData.ancestors.length === 0) {
+    return null;
+  }
+  
+  // Create a virtual root with ancestors as children
+  const ancestorRoot: TreeNode = {
+    ...rootData,
+    children: rootData.ancestors.map(a => limitTreeDepth(a, maxGenerations - 1, 0))
+  };
+  
+  return ancestorRoot;
+}
+
+// Prepare descendant tree structure for D3
+function prepareDescendantTree(rootData: TreeNode, maxGenerations: number): TreeNode | null {
+  if (!rootData.descendants || rootData.descendants.length === 0) {
+    return null;
+  }
+  
+  // Create a virtual root with descendants as children
+  const descendantRoot: TreeNode = {
+    ...rootData,
+    children: rootData.descendants.map(d => limitTreeDepth(d, maxGenerations - 1, 0))
+  };
+  
+  return descendantRoot;
+}
+
 export default function AncestorTree({ data, onNodeClick, selectedId }: AncestorTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [maxGenerations, setMaxGenerations] = useState(5);
-  const maxDepth = getTreeDepth(data);
+  const [ancestorGenerations, setAncestorGenerations] = useState(5);
+  const [descendantGenerations, setDescendantGenerations] = useState(5);
+  
+  // Calculate max depths for ancestors and descendants
+  const maxAncestorDepth = data.ancestors ? Math.max(1, getTreeDepth({ ...data, children: data.ancestors })) : 0;
+  const maxDescendantDepth = data.descendants ? Math.max(1, getDescendantDepth({ ...data, descendants: data.descendants })) : 0;
+  
+  const hasAncestors = Boolean(data.ancestors && data.ancestors.length > 0);
+  const hasDescendants = Boolean(data.descendants && data.descendants.length > 0);
 
   // Popover state
   const [hoveredNode, setHoveredNode] = useState<HoverState | null>(null);
@@ -57,6 +108,9 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentZoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  
+  // Store all rendered nodes for popover lookup
+  const allNodesRef = useRef<Array<{ id: string; x: number; y: number }>>([]);
   
   // Refs for D3 event handlers to access current state without re-rendering tree
   const pinnedNodeRef = useRef<HoverState | null>(null);
@@ -112,15 +166,15 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       return;
     }
 
-    console.log('[AncestorTree] Starting tree render...');
+    console.log('[AncestorTree] Starting bidirectional tree render...');
 
     // Clear previous content
     d3.select(svgRef.current).selectAll('*').remove();
+    allNodesRef.current = [];
 
     const container = containerRef.current;
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
-    const margin = { top: 40, right: 120, bottom: 40, left: 120 };
 
     console.log('[AncestorTree] Container dimensions:', { width: containerWidth, height: containerHeight });
     
@@ -129,40 +183,117 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
       return;
     }
 
-    // Count nodes to calculate appropriate tree dimensions
-    const limitedData = limitTreeDepth(data, maxGenerations);
-    const tempRoot = d3.hierarchy(limitedData);
-    const nodeCount = tempRoot.descendants().length;
-    const nodeSpacing = 50; // pixels between nodes vertically
-    
-    // Calculate tree dimensions - fit to viewport but ensure minimum spacing
-    const minTreeHeight = nodeCount * nodeSpacing;
-    const treeHeight = Math.max(containerHeight - margin.top - margin.bottom, minTreeHeight);
-    const treeWidth = containerWidth - margin.left - margin.right;
-
-    // Create tree layout - horizontal, going right for ancestors
-    const treeLayout = d3.tree<TreeNode>()
-      .size([treeHeight, treeWidth])
-      .separation((a, b) => (a.parent === b.parent ? 1 : 1.5));
-
-    // Create hierarchy and compute layout
-    const root = d3.hierarchy(limitedData);
-    const treeData = treeLayout(root);
-    console.log('[AncestorTree] Hierarchy created, descendants:', root.descendants().length, 'maxGenerations:', maxGenerations);
-
-    // Calculate bounds of the tree
-    const nodes = treeData.descendants();
-    const xExtent = d3.extent(nodes, d => d.y) as [number, number]; // d.y is horizontal position
-    const yExtent = d3.extent(nodes, d => d.x) as [number, number]; // d.x is vertical position
-    const treeBoundsWidth = xExtent[1] - xExtent[0];
-    const treeBoundsHeight = yExtent[1] - yExtent[0];
-
     // Create SVG with zoom behavior
     const svg = d3.select(svgRef.current)
       .attr('width', containerWidth)
       .attr('height', containerHeight);
 
     const g = svg.append('g');
+
+    // Prepare tree data structures
+    const ancestorData = prepareAncestorTree(data, ancestorGenerations);
+    const descendantData = prepareDescendantTree(data, descendantGenerations);
+    
+    // Center point for the root person
+    const centerX = containerWidth / 2;
+    const centerY = containerHeight / 2;
+    
+    // Calculate available space for each direction
+    const halfWidth = (containerWidth / 2) - 100; // Leave margin
+    const nodeSpacing = 60;
+    
+    // Track all nodes and links for rendering
+    interface NodePosition { id: string; x: number; y: number; data: TreeNode }
+    interface LinkData { source: NodePosition; target: NodePosition }
+    const allNodePositions: NodePosition[] = [];
+    const allLinks: LinkData[] = [];
+    
+    // Add root person at center
+    const rootPosition: NodePosition = { id: data.id, x: centerX, y: centerY, data: data };
+    allNodePositions.push(rootPosition);
+    
+    // Helper to render a tree in a specific direction
+    function layoutTree(
+      treeData: TreeNode | null, 
+      direction: 'left' | 'right',
+      maxWidth: number,
+      startX: number
+    ) {
+      if (!treeData || !treeData.children || treeData.children.length === 0) return;
+      
+      const root = d3.hierarchy(treeData);
+      const nodeCount = root.descendants().length - 1; // Exclude root (we already have it)
+      const treeHeight = Math.max(containerHeight - 100, nodeCount * nodeSpacing);
+      
+      const treeLayout = d3.tree<TreeNode>()
+        .size([treeHeight, maxWidth])
+        .separation((a, b) => (a.parent === b.parent ? 1 : 1.5));
+      
+      const layoutData = treeLayout(root);
+      
+      // Process nodes (skip root node, we already added it)
+      layoutData.descendants().forEach((node, index) => {
+        if (index === 0) return; // Skip root
+        
+        // Calculate position
+        // For horizontal trees: d.y is horizontal position, d.x is vertical
+        let nodeX: number;
+        if (direction === 'right') {
+          // Ancestors go right from center
+          nodeX = startX + node.y;
+        } else {
+          // Descendants go left from center
+          nodeX = startX - node.y;
+        }
+        const nodeY = centerY - (treeHeight / 2) + node.x;
+        
+        const pos: NodePosition = { id: node.data.id, x: nodeX, y: nodeY, data: node.data };
+        allNodePositions.push(pos);
+      });
+      
+      // Process links
+      layoutData.links().forEach(link => {
+        let sourceX: number, targetX: number;
+        
+        if (link.source.depth === 0) {
+          // Link from root
+          sourceX = startX;
+        } else if (direction === 'right') {
+          sourceX = startX + link.source.y;
+        } else {
+          sourceX = startX - link.source.y;
+        }
+        
+        if (direction === 'right') {
+          targetX = startX + link.target.y;
+        } else {
+          targetX = startX - link.target.y;
+        }
+        
+        const sourceY = link.source.depth === 0 ? centerY : centerY - (treeHeight / 2) + link.source.x;
+        const targetY = centerY - (treeHeight / 2) + link.target.x;
+        
+        allLinks.push({
+          source: { id: link.source.data.id, x: sourceX, y: sourceY, data: link.source.data },
+          target: { id: link.target.data.id, x: targetX, y: targetY, data: link.target.data }
+        });
+      });
+    }
+    
+    // Layout ancestors (going right)
+    layoutTree(ancestorData, 'right', halfWidth, centerX);
+    
+    // Layout descendants (going left)
+    layoutTree(descendantData, 'left', halfWidth, centerX);
+    
+    // Store for popover lookup
+    allNodesRef.current = allNodePositions.map(n => ({ id: n.id, x: n.x, y: n.y }));
+    
+    // Calculate bounds for auto-fit
+    const xExtent = d3.extent(allNodePositions, d => d.x) as [number, number];
+    const yExtent = d3.extent(allNodePositions, d => d.y) as [number, number];
+    const treeBoundsWidth = (xExtent[1] - xExtent[0]) || 1;
+    const treeBoundsHeight = (yExtent[1] - yExtent[0]) || 1;
 
     // Add zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
@@ -174,11 +305,11 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
         // Update pinned node position on zoom
         const currentPinned = pinnedNodeRef.current;
         if (currentPinned) {
-          const nodeData = treeData.descendants().find(n => n.data.id === currentPinned.id);
+          const nodeData = allNodesRef.current.find(n => n.id === currentPinned.id);
           if (nodeData && containerRef.current) {
             const containerRect = containerRef.current.getBoundingClientRect();
-            const screenX = event.transform.applyX(nodeData.y) + containerRect.left;
-            const screenY = event.transform.applyY(nodeData.x) + containerRect.top;
+            const screenX = event.transform.applyX(nodeData.x) + containerRect.left;
+            const screenY = event.transform.applyY(nodeData.y) + containerRect.top;
             setPinnedNode({ id: currentPinned.id, x: screenX, y: screenY });
           }
         }
@@ -188,8 +319,8 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
 
     // Calculate initial scale to fit tree in viewport with padding
     const padding = 100;
-    const scaleX = (containerWidth - padding * 2) / (treeBoundsWidth || 1);
-    const scaleY = (containerHeight - padding * 2) / (treeBoundsHeight || 1);
+    const scaleX = (containerWidth - padding * 2) / treeBoundsWidth;
+    const scaleY = (containerHeight - padding * 2) / treeBoundsHeight;
     const scale = Math.min(1, scaleX, scaleY);
     
     // Center the tree in the viewport
@@ -198,23 +329,28 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
     const initialX = containerWidth / 2 - treeCenterX * scale;
     const initialY = containerHeight / 2 - treeCenterY * scale;
     svg.call(zoom.transform, d3.zoomIdentity.translate(initialX, initialY).scale(scale));
-    console.log('[AncestorTree] Tree layout computed');
+    console.log('[AncestorTree] Bidirectional tree layout computed');
 
-    // Create links (curved paths)
-    const linkGenerator = d3.linkHorizontal<d3.HierarchyPointLink<TreeNode>, d3.HierarchyPointNode<TreeNode>>()
-      .x(d => d.y)
-      .y(d => d.x);
-
+    // Draw links (curved paths)
     g.selectAll('.tree-link')
-      .data(treeData.links())
+      .data(allLinks)
       .enter()
       .append('path')
       .attr('class', 'tree-link')
-      .attr('d', linkGenerator as unknown as string);
+      .attr('d', d => {
+        const sourceX = d.source.x;
+        const sourceY = d.source.y;
+        const targetX = d.target.x;
+        const targetY = d.target.y;
+        
+        // Create curved path
+        const midX = (sourceX + targetX) / 2;
+        return `M${sourceX},${sourceY} C${midX},${sourceY} ${midX},${targetY} ${targetX},${targetY}`;
+      });
 
     // Create node groups
     const nodeGroups = g.selectAll('.tree-node')
-      .data(treeData.descendants())
+      .data(allNodePositions)
       .enter()
       .append('g')
       .attr('class', d => {
@@ -223,23 +359,31 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
         if (gender === 'M') classes += ' male';
         else if (gender === 'F') classes += ' female';
         if (d.data.id === selectedId) classes += ' selected';
+        if (d.data.direction === 'root') classes += ' root';
         return classes;
       })
-      .attr('transform', d => `translate(${d.y},${d.x})`)
+      .attr('transform', d => `translate(${d.x},${d.y})`)
       .style('cursor', 'pointer')
       .on('click', (_, d) => {
         onNodeClick(d.data);
       });
 
-    // Add circles for nodes
+    // Add circles for nodes (larger for root)
     nodeGroups.append('circle')
-      .attr('r', 20);
+      .attr('r', d => d.data.direction === 'root' ? 25 : 20);
 
     // Add name labels
     nodeGroups.append('text')
       .attr('dy', '0.35em')
-      .attr('x', d => d.children ? -28 : 28)
-      .attr('text-anchor', d => d.children ? 'end' : 'start')
+      .attr('x', d => {
+        if (d.data.direction === 'root') return 0;
+        // Ancestors (right side) get labels on the right, descendants (left side) get labels on the left
+        return d.data.direction === 'ancestor' ? 28 : -28;
+      })
+      .attr('text-anchor', d => {
+        if (d.data.direction === 'root') return 'middle';
+        return d.data.direction === 'ancestor' ? 'start' : 'end';
+      })
       .text(d => {
         const name = d.data.fullName || 'Unknown';
         return name.length > 20 ? name.substring(0, 18) + '...' : name;
@@ -247,9 +391,15 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
 
     // Add year labels below name
     nodeGroups.append('text')
-      .attr('dy', '1.5em')
-      .attr('x', d => d.children ? -28 : 28)
-      .attr('text-anchor', d => d.children ? 'end' : 'start')
+      .attr('dy', d => d.data.direction === 'root' ? '2em' : '1.5em')
+      .attr('x', d => {
+        if (d.data.direction === 'root') return 0;
+        return d.data.direction === 'ancestor' ? 28 : -28;
+      })
+      .attr('text-anchor', d => {
+        if (d.data.direction === 'root') return 'middle';
+        return d.data.direction === 'ancestor' ? 'start' : 'end';
+      })
       .attr('class', 'text-xs fill-slate-400')
       .text(d => {
         const birth = d.data.birthYear;
@@ -267,7 +417,7 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
         d3.select(this).select('circle')
           .transition()
           .duration(200)
-          .attr('r', 25);
+          .attr('r', d.data.direction === 'root' ? 30 : 25);
         
         // Cancel any pending close
         if (closeTimeoutRef.current) {
@@ -288,18 +438,18 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
           if (containerRef.current) {
             const containerRect = containerRef.current.getBoundingClientRect();
             const transform = currentZoomRef.current;
-            const screenX = transform.applyX(d.y) + containerRect.left;
-            const screenY = transform.applyY(d.x) + containerRect.top;
+            const screenX = transform.applyX(d.x) + containerRect.left;
+            const screenY = transform.applyY(d.y) + containerRect.top;
             setHoveredNode({ id: d.data.id, x: screenX, y: screenY });
           }
         }, HOVER_DELAY);
       })
-      .on('mouseleave', function() {
+      .on('mouseleave', function(_, d) {
         // Scale down circle
         d3.select(this).select('circle')
           .transition()
           .duration(200)
-          .attr('r', 20);
+          .attr('r', d.data.direction === 'root' ? 25 : 20);
         
         // Clear hover timeout
         if (hoverTimeoutRef.current) {
@@ -315,35 +465,63 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
         }
       });
 
-    console.log('[AncestorTree] Tree rendering complete');
+    console.log('[AncestorTree] Bidirectional tree rendering complete');
 
-  }, [data, selectedId, onNodeClick, maxGenerations]);
+  }, [data, selectedId, onNodeClick, ancestorGenerations, descendantGenerations]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 bg-slate-900">
       <svg ref={svgRef} className="w-full h-full" />
       
-      {/* Generation Control */}
-      <div className="absolute top-4 left-4 bg-slate-800/90 backdrop-blur rounded-lg p-3 text-sm">
-        <div className="flex items-center gap-3">
-          <span className="text-slate-300">Generations:</span>
-          <button
-            onClick={() => setMaxGenerations(g => Math.max(1, g - 1))}
-            disabled={maxGenerations <= 1}
-            className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            −
-          </button>
-          <span className="text-white font-medium w-6 text-center">{maxGenerations}</span>
-          <button
-            onClick={() => setMaxGenerations(g => Math.min(maxDepth, g + 1))}
-            disabled={maxGenerations >= maxDepth}
-            className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            +
-          </button>
-          <span className="text-slate-500 text-xs">of {maxDepth}</span>
-        </div>
+      {/* Generation Controls */}
+      <div className="absolute top-4 left-4 bg-slate-800/90 backdrop-blur rounded-lg p-3 text-sm space-y-2">
+        {/* Ancestor generations control */}
+        {hasAncestors && (
+          <div className="flex items-center gap-3">
+            <span className="text-slate-300 w-24">Ancestors:</span>
+            <button
+              onClick={() => setAncestorGenerations(g => Math.max(1, g - 1))}
+              disabled={ancestorGenerations <= 1}
+              className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              −
+            </button>
+            <span className="text-white font-medium w-6 text-center">{ancestorGenerations}</span>
+            <button
+              onClick={() => setAncestorGenerations(g => Math.min(maxAncestorDepth + 1, g + 1))}
+              disabled={ancestorGenerations >= maxAncestorDepth + 1}
+              className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              +
+            </button>
+          </div>
+        )}
+        
+        {/* Descendant generations control */}
+        {hasDescendants && (
+          <div className="flex items-center gap-3">
+            <span className="text-slate-300 w-24">Descendants:</span>
+            <button
+              onClick={() => setDescendantGenerations(g => Math.max(1, g - 1))}
+              disabled={descendantGenerations <= 1}
+              className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              −
+            </button>
+            <span className="text-white font-medium w-6 text-center">{descendantGenerations}</span>
+            <button
+              onClick={() => setDescendantGenerations(g => Math.min(maxDescendantDepth + 1, g + 1))}
+              disabled={descendantGenerations >= maxDescendantDepth + 1}
+              className="w-8 h-8 rounded bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              +
+            </button>
+          </div>
+        )}
+        
+        {!hasAncestors && !hasDescendants && (
+          <div className="text-slate-400 text-xs">No ancestors or descendants found</div>
+        )}
       </div>
 
       {/* Legend */}
@@ -361,6 +539,11 @@ export default function AncestorTree({ data, onNodeClick, selectedId }: Ancestor
             <div className="w-4 h-4 rounded-full bg-emerald-500"></div>
             <span className="text-slate-300">Unknown</span>
           </div>
+        </div>
+        <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+          <span>← Children</span>
+          <span className="text-slate-600">|</span>
+          <span>Parents →</span>
         </div>
         <p className="text-slate-500 mt-2 text-xs">
           Hover for info • Click to research • Scroll to zoom • Drag to pan

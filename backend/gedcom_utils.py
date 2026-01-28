@@ -684,6 +684,100 @@ def build_descendant_tree(parser: Parser, person_id: str, max_depth: int = 10) -
     return build_node(person, 0)
 
 
+def build_bidirectional_tree(parser: Parser, person_id: str, ancestor_depth: int = 5, descendant_depth: int = 5) -> dict[str, Any] | None:
+    """
+    Build a bidirectional tree showing both ancestors (parents) and descendants (children)
+    from a person of interest. Returns a D3.js-compatible hierarchical structure.
+    
+    The root person is at the center, with:
+    - ancestors on the right (using "children" property for D3 compatibility)
+    - descendants on the left (using "descendants" property)
+    """
+    # Find the person
+    person = None
+    for element in parser.get_root_child_elements():
+        if isinstance(element, IndividualElement):
+            if element.get_pointer() == person_id:
+                person = element
+                break
+    
+    if not person:
+        return None
+    
+    def get_children_elements(individual: IndividualElement) -> list[IndividualElement]:
+        """Get all children of an individual."""
+        children = []
+        for family in parser.get_families(individual):
+            if isinstance(family, FamilyElement):
+                for child in parser.get_family_members(family, "CHIL"):
+                    if isinstance(child, IndividualElement):
+                        children.append(child)
+        return children
+    
+    def build_ancestor_node(individual: IndividualElement, depth: int) -> dict[str, Any]:
+        """Recursively build tree node with ancestors as children."""
+        node = get_individual_data(individual)
+        node["direction"] = "ancestor"
+        node["children"] = []
+        
+        if depth >= ancestor_depth:
+            del node["children"]
+            return node
+        
+        parents = parser.get_parents(individual)
+        for parent in parents:
+            if isinstance(parent, IndividualElement):
+                parent_node = build_ancestor_node(parent, depth + 1)
+                node["children"].append(parent_node)
+        
+        if not node["children"]:
+            del node["children"]
+        
+        return node
+    
+    def build_descendant_node(individual: IndividualElement, depth: int) -> dict[str, Any]:
+        """Recursively build tree node with descendants as children."""
+        node = get_individual_data(individual)
+        node["direction"] = "descendant"
+        node["children"] = []
+        
+        if depth >= descendant_depth:
+            del node["children"]
+            return node
+        
+        for child in get_children_elements(individual):
+            child_node = build_descendant_node(child, depth + 1)
+            node["children"].append(child_node)
+        
+        if not node["children"]:
+            del node["children"]
+        
+        return node
+    
+    # Build the root node with both directions
+    root_node = get_individual_data(person)
+    root_node["direction"] = "root"
+    
+    # Build ancestors (parents, grandparents, etc.)
+    ancestors = []
+    for parent in parser.get_parents(person):
+        if isinstance(parent, IndividualElement):
+            ancestors.append(build_ancestor_node(parent, 1))
+    
+    if ancestors:
+        root_node["ancestors"] = ancestors
+    
+    # Build descendants (children, grandchildren, etc.)
+    descendants = []
+    for child in get_children_elements(person):
+        descendants.append(build_descendant_node(child, 1))
+    
+    if descendants:
+        root_node["descendants"] = descendants
+    
+    return root_node
+
+
 def get_all_individuals(parser: Parser) -> list[dict[str, Any]]:
     """Get a list of all individuals in the GEDCOM file."""
     individuals = []

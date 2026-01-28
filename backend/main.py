@@ -37,6 +37,7 @@ from gedcom_utils import (
     parse_gedcom_content,
     get_all_individuals,
     build_ancestor_tree,
+    build_bidirectional_tree,
     find_youngest_generation,
     export_gedcom_content,
 )
@@ -275,11 +276,17 @@ async def get_individuals():
 
 
 @app.get("/tree/{person_id}")
-async def get_ancestor_tree(person_id: str, max_depth: int = Query(default=10, le=20)):
-    """Get the ancestor tree for a specific person."""
+async def get_ancestor_tree(
+    person_id: str, 
+    max_depth: int = Query(default=10, le=20),
+    ancestor_depth: int = Query(default=5, le=15),
+    descendant_depth: int = Query(default=5, le=15),
+    bidirectional: bool = Query(default=True)
+):
+    """Get the family tree for a specific person. Supports bidirectional view (ancestors + descendants)."""
     global current_gedcom_parser
     
-    logger.info(f"Building ancestor tree for person_id={person_id}, max_depth={max_depth}")
+    logger.info(f"Building tree for person_id={person_id}, bidirectional={bidirectional}, ancestor_depth={ancestor_depth}, descendant_depth={descendant_depth}")
     
     if not current_gedcom_parser:
         logger.warning("Attempted to get tree without GEDCOM loaded")
@@ -290,13 +297,16 @@ async def get_ancestor_tree(person_id: str, max_depth: int = Query(default=10, l
         person_id = f"@{person_id}@"
         logger.debug(f"Normalized person_id to: {person_id}")
     
-    tree = build_ancestor_tree(current_gedcom_parser, person_id, max_depth)
+    if bidirectional:
+        tree = build_bidirectional_tree(current_gedcom_parser, person_id, ancestor_depth, descendant_depth)
+    else:
+        tree = build_ancestor_tree(current_gedcom_parser, person_id, max_depth)
     
     if not tree:
         logger.warning(f"Person {person_id} not found in GEDCOM")
         raise HTTPException(status_code=404, detail=f"Person with ID {person_id} not found")
     
-    logger.debug(f"Successfully built ancestor tree for {person_id}")
+    logger.debug(f"Successfully built tree for {person_id}")
     
     return TreeResponse(tree=tree, root_person=tree)
 

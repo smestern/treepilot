@@ -39,9 +39,11 @@
 - **React Markdown** for rendering AI responses
 
 ## Prerequisites
-## *******Important*** remember to enable bing web search.
-- For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/)
-1. **GitHub Copilot subscription** and a git PAT token
+***(Important:** remember to enable bing web search.
+     For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/))*
+
+1. **GitHub Copilot subscription** and a git PAT token 
+     
 2. **Copilot CLI** installed
 3. **Python 3.9+** and **Node.js 18+**
 
@@ -56,6 +58,17 @@ cd treepilot
 ### 2. Config your .env
 
 Config your .env file with your GITHUB token, and google books token (optional)
+
+```md
+# Environment variables for TreePilot backend
+
+# Optional: Google Books API key for higher rate limits
+# Get one free at: https://console.cloud.google.com/apis/credentials
+# GOOGLE_BOOKS_API_KEY=your_api_key_here
+
+#You need a github token to access the GitHub MCP server
+GITHUB_TOKEN=your_github_token_here
+
 
 ### 2. Backend Setup
 
@@ -146,6 +159,7 @@ The AI agent has access to:
    - Genealogy guides
    - Local histories
    - Biographical works
+  
 
 ### Family Tree Tools (GEDCOM)
 

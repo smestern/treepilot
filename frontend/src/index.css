@@ -72,6 +72,11 @@ body {
   stroke-width: 4px;
 }
 
+.tree-node.root circle {
+  stroke: #fbbf24;
+  stroke-width: 3px;
+}
+
 .tree-node text {
   font-size: 12px;
   fill: #f1f5f9;

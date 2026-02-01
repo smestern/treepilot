@@ -17,3 +17,6 @@ python-multipart>=0.0.6
 
 # Environment variables
 python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.0.0

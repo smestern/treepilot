@@ -428,3 +428,450 @@ async def undo_last_change(params: UndoParams) -> str:
     output += f"\n*{remaining} change(s) remaining in history.*"
     
     return output
+
+
+# ============================================================================
+# NEW: Person Management Tools (Write Operations)
+# ============================================================================
+
+class AddPersonParams(BaseModel):
+    """Parameters for adding a new person to the tree."""
+    first_name: str = Field(description="Given name of the person")
+    last_name: str = Field(description="Surname/family name of the person")
+    gender: str = Field(
+        default="U",
+        description="Gender: 'M' (male), 'F' (female), or 'U' (unknown). Default is 'U'."
+    )
+    birth_date: str | None = Field(
+        default=None,
+        description="Birth date in GEDCOM format (e.g., '15 MAR 1850', 'MAR 1850', '1850', 'ABT 1850')"
+    )
+    birth_place: str | None = Field(
+        default=None,
+        description="Birth place (city, state, country format preferred)"
+    )
+    death_date: str | None = Field(
+        default=None,
+        description="Death date in GEDCOM format"
+    )
+    death_place: str | None = Field(
+        default=None,
+        description="Death place"
+    )
+    notes: list[str] | None = Field(
+        default=None,
+        description="List of notes/sources about this person"
+    )
+    check_duplicates: bool = Field(
+        default=True,
+        description="Whether to check for potential duplicate persons before adding. Recommended: true"
+    )
+
+
+class LinkParentChildParams(BaseModel):
+    """Parameters for linking parent and child."""
+    parent_id: str = Field(description="GEDCOM ID of the parent (e.g., '@I1@' or 'I1')")
+    child_id: str = Field(description="GEDCOM ID of the child (e.g., '@I2@' or 'I2')")
+    check_circular: bool = Field(
+        default=True,
+        description="Whether to check for circular ancestry. Recommended: true"
+    )
+
+
+class LinkSpousesParams(BaseModel):
+    """Parameters for linking spouses."""
+    spouse1_id: str = Field(description="GEDCOM ID of first spouse")
+    spouse2_id: str = Field(description="GEDCOM ID of second spouse")
+    marriage_date: str | None = Field(
+        default=None,
+        description="Marriage date in GEDCOM format (optional)"
+    )
+    marriage_place: str | None = Field(
+        default=None,
+        description="Marriage place (optional)"
+    )
+
+
+class AddSourceParams(BaseModel):
+    """Parameters for attaching a source citation to a person."""
+    person_id: str = Field(description="GEDCOM ID of the person")
+    source_title: str = Field(description="Title of the source (e.g., 'Wikidata Q12345', 'Boston Birth Records')")
+    source_author: str | None = Field(default=None, description="Author or originator of the source")
+    source_publication: str | None = Field(default=None, description="Publication information")
+    source_url: str | None = Field(default=None, description="URL of the source")
+    event_type: str = Field(
+        default="BIRT",
+        description="Event to attach source to: 'BIRT' (birth), 'DEAT' (death), 'NAME' (name), etc."
+    )
+    page: str | None = Field(default=None, description="Specific page/location in source")
+    quality: int = Field(
+        default=2,
+        description="Quality assessment 0-3: 0=unreliable, 1=questionable, 2=secondary evidence, 3=primary evidence"
+    )
+    citation_text: str | None = Field(default=None, description="Verbatim text extracted from source")
+
+
+class TransactionParams(BaseModel):
+    """Parameters for transaction operations."""
+    description: str = Field(description="Description of the transaction (e.g., 'Added Hans Henrich Mestern with sources')")
+
+
+class EmptyParams(BaseModel):
+    """Empty parameters for tools that don't require input."""
+    pass
+
+
+@define_tool(description="Add a new person to the family tree. Automatically checks for potential duplicates and warns if similar persons already exist. Returns the new person's ID if successful, or duplicate matches for user review.")
+async def add_person_to_tree(params: AddPersonParams) -> str:
+    """Add a new individual to the GEDCOM file."""
+    from gedcom_utils import add_individual, find_potential_duplicates
+    
+    logger.info(f"Adding person: {params.first_name} {params.last_name}")
+    parser = _get_current_parser()
+    if not parser:
+        return _no_gedcom_loaded()
+    
+    # Check for duplicates first
+    if params.check_duplicates:
+        candidate = {
+            "fullName": f"{params.first_name} {params.last_name}",
+            "birthYear": None,
+            "birthPlace": params.birth_place,
+            "gender": params.gender,
+            "deathYear": None
+        }
+        
+        # Extract years from dates
+        if params.birth_date:
+            parts = params.birth_date.split()
+            for part in parts:
+                if part.isdigit() and len(part) == 4:
+                    candidate["birthYear"] = int(part)
+                    break
+        
+        if params.death_date:
+            parts = params.death_date.split()
+            for part in parts:
+                if part.isdigit() and len(part) == 4:
+                    candidate["deathYear"] = int(part)
+                    break
+        
+        duplicates = find_potential_duplicates(parser, candidate, threshold=0.60)
+        
+        if duplicates:
+            output = f"## ⚠️ Potential Duplicates Found\n\n"
+            output += f"Found {len(duplicates)} existing person(s) that may match **{params.first_name} {params.last_name}**:\n\n"
+            
+            for i, match in enumerate(duplicates[:5], 1):  # Show top 5
+                person = match['person']
+                similarity = match['percentage']
+                output += f"### {i}. {person['fullName']} ({similarity}% match)\n"
+                output += f"- **ID:** {person['id']}\n"
+                output += f"- **Birth:** {person.get('birthYear') or '?'}"
+                if person.get('birthPlace'):
+                    output += f" in {person['birthPlace']}"
+                output += "\n"
+                output += f"- **Death:** {person.get('deathYear') or '?'}"
+                if person.get('deathPlace'):
+                    output += f" in {person['deathPlace']}"
+                output += "\n"
+                output += f"- **Gender:** {person.get('gender', 'U')}\n\n"
+            
+            output += "\n**Options:**\n"
+            output += "1. Use one of the existing persons above (note their ID)\n"
+            output += "2. Call `add_person_to_tree` again with `check_duplicates=False` to add as new person\n"
+            output += "3. Gather more research to distinguish between candidates\n"
+            
+            return output
+    
+    # No duplicates or check disabled - proceed with adding
+    result = add_individual(
+        parser,
+        first_name=params.first_name,
+        last_name=params.last_name,
+        gender=params.gender,
+        birth_date=params.birth_date,
+        birth_place=params.birth_place,
+        death_date=params.death_date,
+        death_place=params.death_place,
+        notes=params.notes
+    )
+    
+    if not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        warnings = result.get("warnings", [])
+        output = f"## ❌ Error Adding Person\n\n{error_msg}\n\n"
+        if warnings:
+            output += "**Warnings:**\n"
+            for w in warnings:
+                output += f"- {w}\n"
+        return output
+    
+    person_id = result["id"]
+    warnings = result.get("warnings", [])
+    
+    output = f"## ✅ Added {params.first_name} {params.last_name}\n\n"
+    output += f"**New Person ID:** {person_id}\n\n"
+    
+    if warnings:
+        output += "**Warnings:**\n"
+        for w in warnings:
+            output += f"- {w}\n"
+        output += "\n"
+    
+    output += "**Next Steps:**\n"
+    output += "1. Add sources with `add_source_to_person`\n"
+    output += "2. Link relationships with `link_parent_child` or `link_spouses`\n"
+    output += "3. Add metadata with `update_person_metadata`\n"
+    
+    return output
+
+
+@define_tool(description="Link a parent-child relationship in the family tree. Creates or updates family records as needed. Automatically checks for circular ancestry to prevent invalid relationships.")
+async def link_parent_child(params: LinkParentChildParams) -> str:
+    """Link a parent and child in the GEDCOM file."""
+    from gedcom_utils import add_family_relationship
+    
+    logger.info(f"Linking parent {params.parent_id} to child {params.child_id}")
+    parser = _get_current_parser()
+    if not parser:
+        return _no_gedcom_loaded()
+    
+    result = add_family_relationship(
+        parser,
+        parent_id=params.parent_id,
+        child_id=params.child_id,
+        check_circular=params.check_circular
+    )
+    
+    if not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        warnings = result.get("warnings", [])
+        output = f"## ❌ Error Linking Relationship\n\n{error_msg}\n\n"
+        if warnings:
+            output += "**Warnings:**\n"
+            for w in warnings:
+                output += f"- {w}\n"
+        return output
+    
+    family_id = result["family_id"]
+    warnings = result.get("warnings", [])
+    
+    output = f"## ✅ Linked Parent-Child Relationship\n\n"
+    output += f"**Parent:** {params.parent_id}\n"
+    output += f"**Child:** {params.child_id}\n"
+    output += f"**Family ID:** {family_id}\n\n"
+    
+    if warnings:
+        output += "**Warnings:**\n"
+        for w in warnings:
+            output += f"- {w}\n"
+    
+    return output
+
+
+@define_tool(description="Link two persons as spouses in the family tree. Creates a marriage/family record linking them together. Optionally includes marriage date and place.")
+async def link_spouses(params: LinkSpousesParams) -> str:
+    """Link two persons as spouses in the GEDCOM file."""
+    from gedcom_utils import add_spouse_relationship
+    
+    logger.info(f"Linking spouses {params.spouse1_id} and {params.spouse2_id}")
+    parser = _get_current_parser()
+    if not parser:
+        return _no_gedcom_loaded()
+    
+    result = add_spouse_relationship(
+        parser,
+        spouse1_id=params.spouse1_id,
+        spouse2_id=params.spouse2_id,
+        marriage_date=params.marriage_date,
+        marriage_place=params.marriage_place
+    )
+    
+    if not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        return f"## ❌ Error Linking Spouses\n\n{error_msg}"
+    
+    family_id = result["family_id"]
+    
+    output = f"## ✅ Linked Spouses\n\n"
+    output += f"**Spouse 1:** {params.spouse1_id}\n"
+    output += f"**Spouse 2:** {params.spouse2_id}\n"
+    output += f"**Family ID:** {family_id}\n"
+    
+    if params.marriage_date or params.marriage_place:
+        output += f"\n**Marriage Info:**\n"
+        if params.marriage_date:
+            output += f"- Date: {params.marriage_date}\n"
+        if params.marriage_place:
+            output += f"- Place: {params.marriage_place}\n"
+    
+    return output
+
+
+@define_tool(description="Attach a source citation to a person's event (birth, death, etc.). Creates GEDCOM 5.5.1 standard source records with quality assessment. Use this to document research findings.")
+async def add_source_to_person(params: AddSourceParams) -> str:
+    """Create a source record and attach it to a person's event."""
+    from gedcom_utils import create_source_record, attach_source_citation
+    
+    logger.info(f"Adding source to person {params.person_id}")
+    parser = _get_current_parser()
+    if not parser:
+        return _no_gedcom_loaded()
+    
+    # Create source record
+    source_result = create_source_record(
+        parser,
+        title=params.source_title,
+        author=params.source_author,
+        publication=params.source_publication,
+        url=params.source_url
+    )
+    
+    if not source_result.get("success"):
+        return f"## ❌ Error Creating Source\n\n{source_result.get('error', 'Unknown error')}"
+    
+    source_id = source_result["id"]
+    
+    # Attach to person's event
+    citation_result = attach_source_citation(
+        parser,
+        person_id=params.person_id,
+        source_id=source_id,
+        event_type=params.event_type,
+        page=params.page,
+        quality=params.quality,
+        citation_text=params.citation_text
+    )
+    
+    if not citation_result.get("success"):
+        return f"## ❌ Error Attaching Source\n\n{citation_result.get('error', 'Unknown error')}"
+    
+    quality_labels = {
+        0: "Unreliable",
+        1: "Questionable",
+        2: "Secondary Evidence",
+        3: "Primary Evidence"
+    }
+    quality_label = quality_labels.get(params.quality, "Unknown")
+    
+    output = f"## ✅ Source Added\n\n"
+    output += f"**Source ID:** {source_id}\n"
+    output += f"**Title:** {params.source_title}\n"
+    output += f"**Attached to:** {params.person_id} ({params.event_type} event)\n"
+    output += f"**Quality:** {quality_label} ({params.quality}/3)\n"
+    
+    if params.source_url:
+        output += f"**URL:** {params.source_url}\n"
+    
+    return output
+
+
+@define_tool(description="Begin a transaction to group multiple operations (add person, add sources, link relationships) as a single undoable unit. Use this when performing complex multi-step operations.")
+async def begin_person_transaction(params: TransactionParams) -> str:
+    """Begin a transaction for grouping operations."""
+    from gedcom_utils import begin_transaction
+    
+    logger.info(f"Beginning transaction: {params.description}")
+    
+    try:
+        result = begin_transaction(params.description)
+        return f"## 🔄 Transaction Started\n\n**ID:** {result['id']}\n**Description:** {result['description']}\n\nAll subsequent operations will be grouped until you call `commit_person_transaction`."
+    except RuntimeError as e:
+        return f"## ❌ Error\n\n{str(e)}"
+
+
+@define_tool(description="Commit the current transaction, saving all grouped operations as a single undoable unit. Call this after completing all related operations.")
+async def commit_person_transaction(params: EmptyParams) -> str:
+    """Commit the current transaction."""
+    from gedcom_utils import commit_transaction
+    
+    logger.info("Committing transaction")
+    
+    try:
+        result = commit_transaction()
+        
+        # Store in change history for undo
+        if _add_change_record:
+            _add_change_record(result)
+        
+        output = f"## ✅ Transaction Committed\n\n"
+        output += f"**Description:** {result['description']}\n"
+        output += f"**Operations:** {result['operation_count']}\n"
+        output += f"**Started:** {result['started_at']}\n"
+        output += f"**Committed:** {result['committed_at']}\n\n"
+        output += "*This transaction can be undone as a single unit using `undo_transaction`.*"
+        
+        return output
+    except RuntimeError as e:
+        return f"## ❌ Error\n\n{str(e)}"
+
+
+class UndoTransactionParams(BaseModel):
+    """Parameters for undoing a transaction."""
+    transaction_index: int = Field(
+        default=-1,
+        description="Index of transaction to undo. -1 (default) = most recent, -2 = second most recent, etc."
+    )
+    confirm: bool = Field(
+        default=True,
+        description="Confirm that you want to undo this transaction. Set to true to proceed."
+    )
+
+
+@define_tool(description="Undo an entire transaction, reversing all operations as a group (e.g., remove added person, sources, and relationships together). Use this to rollback complex multi-step operations.")
+async def undo_transaction(params: UndoTransactionParams) -> str:
+    """Undo an entire transaction."""
+    from gedcom_utils import apply_transaction_undo
+    
+    if not params.confirm:
+        return "Undo cancelled. Set confirm=true to proceed."
+    
+    logger.info(f"Undoing transaction at index {params.transaction_index}")
+    parser = _get_current_parser()
+    if not parser:
+        return _no_gedcom_loaded()
+    
+    if not _get_change_history:
+        return "Undo system not initialized."
+    
+    change_history = _get_change_history()
+    if not change_history:
+        return "No transactions to undo. The change history is empty."
+    
+    try:
+        # Get the transaction record
+        transaction_record = change_history[params.transaction_index]
+        
+        # Check if it's a transaction (has 'operations' field)
+        if 'operations' not in transaction_record:
+            return "Selected change is not a transaction. Use `undo_last_change` for single-operation undo."
+        
+        # Remove from history
+        change_history.pop(params.transaction_index)
+        
+        # Apply undo
+        result = apply_transaction_undo(parser, transaction_record)
+        
+        if not result.get("success"):
+            errors = result.get("errors", [])
+            output = f"## ❌ Undo Failed\n\n"
+            output += f"**Operations undone:** {result['operations_undone']}\n\n"
+            output += "**Errors:**\n"
+            for error in errors:
+                output += f"- {error}\n"
+            return output
+        
+        output = f"## ✅ Transaction Undone\n\n"
+        output += f"**Description:** {transaction_record['description']}\n"
+        output += f"**Operations Reversed:** {result['operations_undone']}\n"
+        output += f"**Original Commit Time:** {transaction_record.get('committed_at', 'unknown')}\n\n"
+        
+        remaining = len(change_history)
+        output += f"*{remaining} change(s) remaining in history.*"
+        
+        return output
+        
+    except IndexError:
+        return f"Invalid transaction index: {params.transaction_index}. History has {len(change_history)} items."
+

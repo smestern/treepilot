@@ -14,6 +14,13 @@ from .gedcom_tree import (
     update_person_metadata,
     undo_last_change,
     set_gedcom_accessors,
+    add_person_to_tree,
+    link_parent_child,
+    link_spouses,
+    add_source_to_person,
+    begin_person_transaction,
+    commit_person_transaction,
+    undo_transaction,
 )
 
 __all__ = [
@@ -33,4 +40,12 @@ __all__ = [
     "update_person_metadata",
     "undo_last_change",
     "set_gedcom_accessors",
+    # Person management tools
+    "add_person_to_tree",
+    "link_parent_child",
+    "link_spouses",
+    "add_source_to_person",
+    "begin_person_transaction",
+    "commit_person_transaction",
+    "undo_transaction",
 ]

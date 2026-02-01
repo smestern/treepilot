@@ -30,6 +30,7 @@
   - Wikidata SPARQL queries
   - Chronicling America (historical newspapers 1770-1963)
   - Google Books API
+  - Tavily Web Search (backup for MCP web_search)
 
 ### Frontend
 - **React 18** with TypeScript
@@ -39,8 +40,8 @@
 - **React Markdown** for rendering AI responses
 
 ## Prerequisites
-***(Important:** remember to enable bing web search.
-     For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/))*
+*(**Important**: For decent results enable bing websearch tool use in your [copilot settings](https://github.blog/changelog/2024-10-29-web-search-in-github-copilot-chat-now-available-for-copilot-individual/))*  
+*Or get a [tavily key](https://www.tavily.com/)*
 
 1. **GitHub Copilot subscription** and a git PAT token 
      
@@ -60,15 +61,16 @@ cd treepilot
 Config your .env file with your GITHUB token, and google books token (optional)
 
 ```md
-# Environment variables for TreePilot backend
-
-# Optional: Google Books API key for higher rate limits
-# Get one free at: https://console.cloud.google.com/apis/credentials
-# GOOGLE_BOOKS_API_KEY=your_api_key_here
-
-#You need a github token to access the GitHub MCP server
+# GitHub token for MCP server authentication (required)
 GITHUB_TOKEN=your_github_token_here
 
+# Optional: Google Books API key for higher rate limits
+GOOGLE_BOOKS_API_KEY=your_api_key_here
+
+# Optional: Tavily API key for backup web search
+# Get a free key at: https://tavily.com (1000 searches/month free)
+TAVILY_API_KEY=your_tavily_api_key_here
+```
 
 ### 2. Backend Setup
 
@@ -115,10 +117,7 @@ Navigate to `http://localhost:5173` in your browser.
 
 ## Sample GEDCOM
 
-A sample GEDCOM file is included (`sample-family.ged`) with a fictional 4-generation family including:
-- Immigration from Ireland, Poland, and Sweden
-- Various occupations and locations across the US
-- 20 individuals spanning 1880-1992
+A sample GEDCOM file is included (`sample-family.ged`)
 
 ## API Endpoints
 
@@ -156,9 +155,14 @@ The AI agent has access to:
    - Local news mentions
 
 4. **Google Books** (`search_books`)
-   - Genealogy guides
+   - Genealogy guidest
    - Local histories
    - Biographical works
+
+5. **Tavily Web Search** (`search_web_tavily`)
+   - Backup web search when GitHub MCP `#web_search` is unavailable
+   - Searches ancestry databases, immigration records, family histories
+   - Results are cached for 1 hour to optimize API usage
   
 
 ### Family Tree Tools (GEDCOM)
@@ -189,6 +193,10 @@ GITHUB_TOKEN=your_github_token_here
 
 # Optional: Google Books API key for higher rate limits
 GOOGLE_BOOKS_API_KEY=your_api_key_here
+
+# Optional: Tavily API key for backup web search
+# Get a free key at: https://tavily.com (1000 searches/month free)
+TAVILY_API_KEY=your_tavily_api_key_here
 ```
 
 ### Getting a GitHub Token

@@ -2,6 +2,7 @@ from .wikipedia import search_wikipedia
 from .wikidata import search_wikidata
 from .newspapers import search_newspapers
 from .books import search_books
+from .tavily import search_web_tavily
 from .gedcom_tree import (
     get_person_metadata,
     get_person_parents,
@@ -24,10 +25,11 @@ from .gedcom_tree import (
 )
 
 __all__ = [
-    # "search_wikipedia",
-    # "search_wikidata", 
-    # "search_newspapers",
-    # "search_books",
+    "search_wikipedia",
+    "search_wikidata", 
+    "search_newspapers",
+    "search_books",
+    "search_web_tavily",  # Backup web search via Tavily API
     # GEDCOM tree tools
     "get_person_metadata",
     "get_person_parents",

@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from copilot import CopilotClient
 from tools import (
     search_wikipedia, search_wikidata, search_newspapers, search_books,
+    search_web_tavily,
     get_person_metadata, get_person_parents, get_person_children,
     get_person_spouses, get_person_siblings, get_person_grandparents,
     get_person_aunts_uncles, get_person_cousins, update_person_metadata,
@@ -72,13 +73,16 @@ SYSTEM_PROMPT = """You are TreePilot, an expert genealogy research assistant. Yo
 ## CRITICAL: ALWAYS USE WEB SEARCH
 You MUST use the #web_search tool for EVERY research query. This is your most powerful tool for genealogy research. Do not skip it. Call #web_search even if other tools return results - web search often finds additional valuable sources.
 
+**IMPORTANT FALLBACK:** If #web_search fails, returns an error, is unavailable, or times out, immediately use **search_web_tavily** as a backup. Do not give up on web searching - always try the Tavily backup when the primary search fails.
+
 ## Your Capabilities
 You have access to the following research tools:
 1. **#web_search** - YOUR PRIMARY TOOL. Search the web for ANY genealogy query. Use this FIRST and ALWAYS. Finds surname origins, immigration records, family histories, ancestry databases, regional genealogy sites, and much more.
-2. **Wikipedia** - For biographical information about notable individuals
-3. **Wikidata** - For structured genealogical data (birth/death dates, family relationships)
-4. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
-5. **Google Books** - Find genealogy guides, local histories, and biographical works
+2. **search_web_tavily** - BACKUP web search via Tavily API. Use this automatically when #web_search is unavailable or fails.
+3. **Wikipedia** - For biographical information about notable individuals
+4. **Wikidata** - For structured genealogical data (birth/death dates, family relationships)
+5. **Historical Newspapers** - Search Chronicling America (1770-1963) for obituaries, birth/marriage announcements, and historical mentions
+6. **Google Books** - Find genealogy guides, local histories, and biographical works
 
 ## Family Tree Tools (GEDCOM)
 You can query and update the user's family tree directly:
@@ -530,20 +534,21 @@ async def get_change_history_endpoint():
 # Helper functions for chat endpoints
 def _get_all_tools():
     """Get the complete list of tools for Copilot sessions."""
-    return [
-        # External research tools
-        search_wikipedia, search_wikidata, search_newspapers, search_books,
-        # GEDCOM tree tools
-        get_person_metadata, get_person_parents, get_person_children,
-        get_person_spouses, get_person_siblings, get_person_grandparents,
-        get_person_aunts_uncles, get_person_cousins,
-        update_person_metadata, undo_last_change,
-    ]
+    return (
+    search_wikipedia, search_wikidata, search_newspapers, search_books,
+    search_web_tavily,
+    get_person_metadata, get_person_parents, get_person_children,
+    get_person_spouses, get_person_siblings, get_person_grandparents,
+    get_person_aunts_uncles, get_person_cousins, update_person_metadata,
+    undo_last_change, set_gedcom_accessors,
+    add_person_to_tree, link_parent_child, link_spouses, add_source_to_person,
+    begin_person_transaction, commit_person_transaction, undo_transaction,
+)
 
 def _get_banned_tools():
     """Get the list of banned tools (none currently)."""
     return [
-        "powershell", "write_powershell", "read_powershell", "view", "create", "edit"
+        "powershell", "write_powershell", "read_powershell", "view", "create", "edit" #Banned any code or file system tools, this is a genealogy researcher only
     ]
 
 

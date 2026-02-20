@@ -52,6 +52,7 @@ load_dotenv()
 copilot_client: CopilotClient | None = None
 current_gedcom_parser = None
 current_session = None
+current_streaming_session = None  # Persistent streaming session for conversation history
 change_history: list[dict] = []  # Track metadata changes for undo
 
 
@@ -596,6 +597,30 @@ def _get_mcp_servers(streaming: bool = False) -> dict:
     }
 
 
+@app.post("/chat/reset")
+async def reset_chat_session():
+    """Reset the chat session to start a fresh conversation."""
+    global current_session, current_streaming_session
+    
+    logger.info("Resetting chat sessions...")
+    
+    if current_session:
+        try:
+            await current_session.destroy()
+        except Exception as e:
+            logger.warning(f"Error destroying non-streaming session: {e}")
+        current_session = None
+        
+    if current_streaming_session:
+        try:
+            await current_streaming_session.destroy()
+        except Exception as e:
+            logger.warning(f"Error destroying streaming session: {e}")
+        current_streaming_session = None
+    
+    logger.info("Chat sessions reset successfully")
+    return {"message": "Chat session reset successfully"}
+
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
@@ -611,16 +636,19 @@ async def chat(request: ChatRequest):
     # Build prompt with person context if provided
     prompt = _build_prompt_with_context(request.prompt, request.person_context)
    
-    # Create session with tools
-    logger.info("Creating Copilot session with tools...")
-    session = await copilot_client.create_session({
-        "model": "claude-sonnet-4.5",
-        "tools": _get_all_tools(),
-        "mcp_servers": _get_mcp_servers(),
-        "excluded_tools": _get_banned_tools(),
-        "system_message": {"content": SYSTEM_PROMPT},
-    })
-    logger.debug("Copilot session created")
+    # Reuse existing session or create new one
+    if current_session is None:
+        logger.info("Creating Copilot session with tools...")
+        current_session = await copilot_client.create_session({
+            "model": "claude-sonnet-4.5",
+            "tools": _get_all_tools(),
+            "mcp_servers": _get_mcp_servers(),
+            "excluded_tools": _get_banned_tools(),
+            "system_message": {"content": SYSTEM_PROMPT},
+        })
+        logger.debug("Copilot session created")
+    else:
+        logger.debug("Reusing existing Copilot session")
     
     done = asyncio.Event()
     response_content = ""
@@ -636,11 +664,11 @@ async def chat(request: ChatRequest):
             logger.debug("Session idle, completing request")
             done.set()
     
-    session.on(on_event)
+    current_session.on(on_event)
     logger.info("Sending prompt to Copilot...")
-    await session.send({"prompt": prompt})
+    await current_session.send({"prompt": prompt})
     await done.wait()
-    await session.destroy()
+    # Don't destroy session - keep it for conversation history
     logger.info(f"Chat response complete ({len(response_content)} chars)")
     
     return ChatResponse(content=response_content)
@@ -649,7 +677,7 @@ async def chat(request: ChatRequest):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """Streaming chat endpoint using Server-Sent Events."""
-    global copilot_client
+    global copilot_client, current_streaming_session
     
     logger.info(f"Streaming chat request: '{request.prompt[:50]}...'" if len(request.prompt) > 50 else f"Streaming chat request: '{request.prompt}'")
     
@@ -660,9 +688,10 @@ async def chat_stream(request: ChatRequest):
     # Build prompt with person context if provided
     prompt = _build_prompt_with_context(request.prompt, request.person_context)
     
-    async def generate() -> AsyncGenerator[str, None]:
+    # Reuse existing streaming session or create new one
+    if current_streaming_session is None:
         logger.info("Creating streaming Copilot session...")
-        session = await copilot_client.create_session({
+        current_streaming_session = await copilot_client.create_session({
             "model": "claude-sonnet-4.5",
             "streaming": True,
             "tools":  _get_all_tools(),
@@ -671,6 +700,12 @@ async def chat_stream(request: ChatRequest):
             "system_message": {"content": SYSTEM_PROMPT},
         })
         logger.debug("Streaming session created")
+    else:
+        logger.debug("Reusing existing streaming session")
+    
+    session = current_streaming_session
+    
+    async def generate() -> AsyncGenerator[str, None]:
         
         queue: asyncio.Queue[str | None] = asyncio.Queue()
         done = asyncio.Event()
@@ -720,8 +755,8 @@ async def chat_stream(request: ChatRequest):
                 continue
         
         yield "data: [DONE]\n\n"
-        await session.destroy()
-        logger.debug("Streaming session destroyed")
+        # Don't destroy session - keep it for conversation history
+        logger.debug("Streaming request complete, session preserved")
     
     return StreamingResponse(
         generate(),

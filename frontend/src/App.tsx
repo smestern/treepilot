@@ -111,7 +111,13 @@ function App() {
   }, [activeSessionId]);
 
   // Session handlers
-  const handleNewSession = useCallback(() => {
+  const handleNewSession = useCallback(async () => {
+    // Reset backend session to clear conversation history
+    try {
+      await fetch('/api/chat/reset', { method: 'POST' });
+    } catch (e) {
+      console.warn('Failed to reset backend session:', e);
+    }
     const newSession = createNewSession(selectedPerson);
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
@@ -138,7 +144,13 @@ function App() {
     }
   }, [activeSessionId, selectedPerson]);
 
-  const handleClearAllSessions = useCallback(() => {
+  const handleClearAllSessions = useCallback(async () => {
+    // Reset backend session to clear conversation history
+    try {
+      await fetch('/api/chat/reset', { method: 'POST' });
+    } catch (e) {
+      console.warn('Failed to reset backend session:', e);
+    }
     const newSession = createNewSession(selectedPerson);
     setSessions([newSession]);
     setActiveSessionId(newSession.id);

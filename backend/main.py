@@ -540,7 +540,7 @@ def _get_all_tools():
     get_person_metadata, get_person_parents, get_person_children,
     get_person_spouses, get_person_siblings, get_person_grandparents,
     get_person_aunts_uncles, get_person_cousins, update_person_metadata,
-    undo_last_change, set_gedcom_accessors,
+    undo_last_change, 
     add_person_to_tree, link_parent_child, link_spouses, add_source_to_person,
     begin_person_transaction, commit_person_transaction, undo_transaction,
 )

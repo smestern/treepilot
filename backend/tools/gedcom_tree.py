@@ -57,8 +57,6 @@ class UpdateMetadataParams(BaseModel):
 _get_parser = None
 _get_change_history = None
 _add_change_record = None
-
-
 def set_gedcom_accessors(get_parser_fn, get_change_history_fn, add_change_record_fn):
     """Set the accessor functions for parser and change history from main.py."""
     global _get_parser, _get_change_history, _add_change_record

@@ -5,27 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Attach using Process Id",
+            "name": "Python Debugger: FastAPI",
             "type": "debugpy",
-            "request": "attach",
-            "processId": "29828"
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "main:app",
+                "--reload"
+            ],
+            "jinja": true,
+            "justMyCode": false
         },
         {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
-        {
-            "name": "Backend",
-            "type": "debugpy",
-            "request": "launch",
-            "program": ".\\venv\\Scripts\\python.exe",
-            "args": [
-                "main.py"
-            ],
-            "console": "integratedTerminal"
-        }
     ]
 }
